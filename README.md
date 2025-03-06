@@ -1,36 +1,160 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Claude Batch
 
-## Getting Started
+A modern web application for batch processing text completions through Anthropic's Claude AI model. This application allows you to efficiently create, manage, and monitor batches of AI completion requests.
 
-First, run the development server:
+## 🌟 Features
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+- **Batch Processing**: Upload, configure, and process large batches of prompts with Claude
+- **Dashboard Interface**: Monitor real-time progress of your batch completions
+- **Authentication**: Secure user authentication with email/password and OAuth providers
+- **API Key Management**: Create and manage API keys for programmatic access
+- **User Roles**: Administrative controls and user role management
+- **Robust Security**: Comprehensive security headers and authentication flows
+- **Responsive Design**: Modern UI built with React, Tailwind CSS, and Shadcn UI components
+
+## 🛠️ Tech Stack
+
+- **Framework**: [Next.js 15](https://nextjs.org/) with App Router and React Server Components
+- **Authentication**: [NextAuth.js](https://next-auth.js.org/) with database adapter
+- **Database**: PostgreSQL with [Prisma ORM](https://www.prisma.io/)
+- **Schema Enhancement**: [ZenStack](https://zenstack.dev/) for access policies
+- **Form Management**: React Hook Form with Zod validation
+- **Styling**: [Tailwind CSS](https://tailwindcss.com/) with Shadcn UI components
+- **State Management**: [Zustand](https://zustand-demo.pmnd.rs/) and React Query
+- **UI Components**: [Radix UI](https://www.radix-ui.com/) primitives
+- **AI Integration**: [Anthropic API](https://anthropic.com/api/) for Claude AI access
+
+## 🚀 Getting Started
+
+### Prerequisites
+
+- Node.js 18+ and npm/yarn/pnpm
+- PostgreSQL database
+- Anthropic API key
+
+### Installation
+
+1. Clone the repository:
+   ```bash
+   git clone https://github.com/yourusername/claude-batch.git
+   cd claude-batch
+   ```
+
+2. Install dependencies:
+   ```bash
+   npm install
+   # or
+   yarn install
+   # or
+   pnpm install
+   ```
+
+3. Set up environment variables:
+   - Copy `.env.example` to `.env.local`
+   - Fill in the required environment variables:
+     ```
+     # Database
+     DATABASE_URL="postgresql://postgres:password@localhost:5432/claude_batch"
+
+     # Anthropic API
+     ANTHROPIC_API_KEY="your-anthropic-api-key"
+
+     # NextAuth
+     NEXTAUTH_SECRET="your-nextauth-secret"
+     NEXTAUTH_URL="http://localhost:3000"
+
+     # Optional OAuth Providers
+     # GITHUB_ID="your-github-client-id"
+     # GITHUB_SECRET="your-github-client-secret"
+     # GOOGLE_ID="your-google-client-id"
+     # GOOGLE_SECRET="your-google-client-secret"
+     ```
+
+4. Initialize and migrate the database:
+   ```bash
+   npx prisma migrate dev
+   ```
+
+5. Start the development server:
+   ```bash
+   npm run dev
+   # or
+   yarn dev
+   # or
+   pnpm dev
+   ```
+
+6. Open [http://localhost:3000](http://localhost:3000) in your browser to see the application.
+
+## 🗄️ Database Schema
+
+The application uses the following core data models:
+
+- **User**: User accounts with authentication information
+- **Batch**: Represents a collection of completions to be processed
+- **Completion**: Individual AI completion requests within a batch
+- **ApiKey**: API keys for programmatic access to the application
+
+## 🔒 Authentication
+
+- Email/Password authentication
+- OAuth providers support (GitHub, Google)
+- Session-based authentication with JWT
+- Protected routes via middleware
+- API key authentication for programmatic access
+
+## 🤖 Using the API
+
+The application provides both a web interface and API endpoints for managing batches:
+
+1. Create an API key in the settings
+2. Use the key to authenticate API requests:
+   ```bash
+   curl -X POST https://your-deployment-url/api/batches \
+     -H "Authorization: Bearer YOUR_API_KEY" \
+     -H "Content-Type: application/json" \
+     -d '{
+       "name": "My Batch",
+       "prompts": ["Tell me about AI", "Explain quantum computing"]
+     }'
+   ```
+
+## 📊 Dashboard Usage
+
+1. **Create a Batch**: Upload a CSV or JSON file with prompts or enter prompts manually
+2. **Configure**: Set Claude model, temperature, and other parameters
+3. **Process**: Start the batch and monitor progress in real-time
+4. **Results**: Download or export results when processing completes
+
+## 🛣️ Project Structure
+
+```
+claude-batch/
+├── app/                   # Next.js App Router
+│   ├── (auth)/            # Authentication pages
+│   ├── (dashboard)/       # Protected dashboard pages
+│   ├── api/               # API routes
+│   └── page.tsx           # Landing page
+├── components/            # Reusable React components
+├── config/                # Configuration files
+├── hooks/                 # Custom React hooks
+├── lib/                   # Utility functions and services
+├── prisma/                # Database schema and migrations
+│   ├── schema.prisma      # Prisma schema
+│   └── zenstack.schema    # ZenStack enhanced schema
+├── public/                # Static assets
+└── types/                 # TypeScript type definitions
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## 🧪 Development
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+### Scripts
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+- `npm run dev`: Start development server
+- `npm run build`: Build for production
+- `npm run start`: Start production server
+- `npm run lint`: Run ESLint
 
-## Learn More
+## 📜 License
 
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+This project is licensed under the MIT License.
