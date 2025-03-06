@@ -1,0 +1,203 @@
+// This is your ZenStack schema file,
+// learn more about it in the docs: https://zenstack.dev/docs
+
+import "prisma-schema"
+
+plugin hooks {
+  provider = '@zenstackhq/tanstack-query'
+  output = '../lib/hooks'
+}
+
+model User {
+  id            String    @id @default(cuid())
+  name          String?
+  email         String    @unique
+  emailVerified DateTime?
+  image         String?
+  password      String?
+  role          UserRole  @default(USER)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  // Relations
+  accounts      Account[]
+  sessions      Session[]
+  apiKeys       ApiKey[]
+  batches       Batch[]
+
+  @@map("users")
+
+  // Access policies
+  @@allow('read', auth() != null && (id == auth().id || auth().role == 'ADMIN'))
+  @@allow('create', true)
+  @@allow('update', auth() != null && (id == auth().id || auth().role == 'ADMIN'))
+  @@allow('delete', auth() != null && auth().role == 'ADMIN')
+}
+
+model Account {
+  id                String   @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String?  @db.Text
+  access_token      String?  @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?  @db.Text
+  session_state     String?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@map("accounts")
+
+  // Access policies
+  @@allow('read', auth() != null && (userId == auth().id || auth().role == 'ADMIN'))
+  @@allow('create', auth() != null)
+  @@allow('update', auth() != null && (userId == auth().id || auth().role == 'ADMIN'))
+  @@allow('delete', auth() != null && (userId == auth().id || auth().role == 'ADMIN'))
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("sessions")
+
+  // Access policies
+  @@allow('read', auth() != null && (userId == auth().id || auth().role == 'ADMIN'))
+  @@allow('create', auth() != null)
+  @@allow('update', auth() != null && (userId == auth().id || auth().role == 'ADMIN'))
+  @@allow('delete', auth() != null && (userId == auth().id || auth().role == 'ADMIN'))
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@unique([identifier, token])
+  @@map("verification_tokens")
+
+  // Access policies
+  @@allow('read', false)
+  @@allow('create', true)
+  @@allow('update', false)
+  @@allow('delete', false)
+}
+
+model ApiKey {
+  id          String    @id @default(cuid())
+  name        String
+  key         String    @unique
+  userId      String
+  lastUsed    DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  expiresAt   DateTime?
+  isRevoked   Boolean   @default(false)
+
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("api_keys")
+
+  // Access policies
+  @@allow('read', auth() != null && (userId == auth().id || auth().role == 'ADMIN'))
+  @@allow('create', auth() != null)
+  @@allow('update', auth() != null && (userId == auth().id || auth().role == 'ADMIN'))
+  @@allow('delete', auth() != null && (userId == auth().id || auth().role == 'ADMIN'))
+}
+
+model Batch {
+  id              String        @id @default(cuid())
+  name            String
+  description     String?
+  model           String
+  status          BatchStatus   @default(PENDING)
+  anthropicId     String?       @unique
+  userId          String
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+  completedAt     DateTime?
+  inputTokens     Int?
+  outputTokens    Int?
+  totalCompletions Int           @default(0)
+  errorCount      Int           @default(0)
+  
+  // Relations
+  user            User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  completions     Completion[]
+  
+  // JSON fields
+  settings        Json?         // Store temperature, maxTokens, etc.
+  metadata        Json?         // Store any additional metadata
+
+  @@map("batches")
+
+  // Access policies
+  @@allow('read', auth() != null && (userId == auth().id || auth().role == 'ADMIN'))
+  @@allow('create', auth() != null)
+  @@allow('update', auth() != null && (userId == auth().id || auth().role == 'ADMIN'))
+  @@allow('delete', auth() != null && (userId == auth().id || auth().role == 'ADMIN'))
+}
+
+model Completion {
+  id              String            @id @default(cuid())
+  batchId         String
+  anthropicId     String?
+  status          CompletionStatus  @default(PENDING)
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+  completedAt     DateTime?
+  inputTokens     Int?
+  outputTokens    Int?
+  
+  // Relations
+  batch           Batch             @relation(fields: [batchId], references: [id], onDelete: Cascade)
+  
+  // JSON fields
+  input           Json              // Store messages, system prompt, etc.
+  output          Json?             // Store completion output
+  error           Json?             // Store error details if any
+
+  @@map("completions")
+
+  // Access policies
+  @@allow('read', auth() != null && (batch.userId == auth().id || auth().role == 'ADMIN'))
+  @@allow('create', auth() != null && (batch.userId == auth().id || auth().role == 'ADMIN'))
+  @@allow('update', auth() != null && (batch.userId == auth().id || auth().role == 'ADMIN'))
+  @@allow('delete', auth() != null && (batch.userId == auth().id || auth().role == 'ADMIN'))
+}
+
+// Enums
+enum UserRole {
+  USER
+  ADMIN
+}
+
+enum BatchStatus {
+  PENDING
+  IN_PROGRESS
+  COMPLETED
+  FAILED
+  CANCELED
+}
+
+enum CompletionStatus {
+  PENDING
+  IN_PROGRESS
+  COMPLETED
+  FAILED
+}

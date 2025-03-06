@@ -1,100 +1,114 @@
-import Image from "next/image";
+import Link from "next/link";
+import { ArrowRight, Bot, Cpu, Database, Layers, Shield } from "lucide-react";
+
+import { Button } from "../components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../components/ui/card";
 
 export default function Home() {
   return (
-    <div className="grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20 font-[family-name:var(--font-geist-sans)]">
-      <main className="flex flex-col gap-8 row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="list-inside list-decimal text-sm text-center sm:text-left font-[family-name:var(--font-geist-mono)]">
-          <li className="mb-2">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] px-1 py-0.5 rounded font-semibold">
-              app/page.tsx
-            </code>
-            .
-          </li>
-          <li>Save and see your changes instantly.</li>
-        </ol>
-
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:min-w-44"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
+    <div className="flex flex-col min-h-screen">
+      <header className="top-0 z-40 sticky bg-background border-b">
+        <div className="flex justify-between items-center py-4 h-16 container">
+          <div className="flex items-center gap-2">
+            <Bot className="w-6 h-6" />
+            <span className="font-bold text-xl">Claude Batch</span>
+          </div>
+          <nav className="flex items-center gap-4">
+            <Link href="/login">
+              <Button variant="ghost">Login</Button>
+            </Link>
+            <Link href="/register">
+              <Button>Get Started</Button>
+            </Link>
+          </nav>
         </div>
+      </header>
+      <main className="flex-1">
+        <section className="space-y-6 lg:py-32 pt-6 md:pt-10 pb-8 md:pb-12">
+          <div className="flex flex-col items-center gap-4 max-w-[64rem] text-center container">
+            <h1 className="font-bold text-3xl sm:text-5xl md:text-6xl tracking-tighter">
+              Batch Processing with Claude AI
+            </h1>
+            <p className="max-w-[42rem] text-muted-foreground sm:text-xl leading-normal sm:leading-8">
+              A production-ready interface for the Anthropic Batch API. Process thousands of prompts efficiently with real-time status tracking.
+            </p>
+            <div className="flex flex-wrap justify-center gap-4">
+              <Link href="/register">
+                <Button size="lg" className="gap-1">
+                  Get Started <ArrowRight className="w-4 h-4" />
+                </Button>
+              </Link>
+              <Link href="/login">
+                <Button size="lg" variant="outline">
+                  Login
+                </Button>
+              </Link>
+            </div>
+          </div>
+        </section>
+        <section className="space-y-6 py-8 md:py-12 lg:py-24 container">
+          <div className="flex flex-col items-center space-y-4 mx-auto max-w-[58rem] text-center">
+            <h2 className="font-bold text-3xl sm:text-3xl md:text-5xl leading-[1.1]">
+              Features
+            </h2>
+            <p className="max-w-[85%] text-muted-foreground sm:text-lg leading-normal sm:leading-7">
+              Everything you need to manage and process large batches of AI completions
+            </p>
+          </div>
+          <div className="justify-center gap-4 grid sm:grid-cols-2 md:grid-cols-3 mx-auto md:max-w-[64rem]">
+            <Card>
+              <CardHeader>
+                <Layers className="w-5 h-5 text-primary" />
+                <CardTitle className="mt-2">Batch Creation</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <CardDescription>
+                  Create batches with dynamic message inputs and customizable model parameters.
+                </CardDescription>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader>
+                <Cpu className="w-5 h-5 text-primary" />
+                <CardTitle className="mt-2">Real-time Tracking</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <CardDescription>
+                  Monitor batch processing status in real-time with detailed progress information.
+                </CardDescription>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader>
+                <Database className="w-5 h-5 text-primary" />
+                <CardTitle className="mt-2">History & Analytics</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <CardDescription>
+                  Browse your batch history with advanced filtering and export capabilities.
+                </CardDescription>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader>
+                <Shield className="w-5 h-5 text-primary" />
+                <CardTitle className="mt-2">Secure API Keys</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <CardDescription>
+                  Manage your Anthropic API keys securely with role-based access control.
+                </CardDescription>
+              </CardContent>
+            </Card>
+          </div>
+        </section>
       </main>
-      <footer className="row-start-3 flex gap-6 flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
+      <footer className="py-6 md:py-0 border-t">
+        <div className="flex md:flex-row flex-col justify-between items-center gap-4 md:h-24 container">
+          <p className="text-muted-foreground text-sm md:text-left text-center leading-loose">
+            &copy; {new Date().getFullYear()} Claude Batch. All rights reserved.
+          </p>
+        </div>
       </footer>
     </div>
   );
