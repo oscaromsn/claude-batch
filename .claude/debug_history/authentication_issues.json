@@ -1,0 +1,52 @@
+{
+  "issues": [
+    {
+      "id": "AUTH-001",
+      "title": "JWT token not containing user role",
+      "component": "Authentication",
+      "file": "lib/auth/auth.ts",
+      "error": "User role not available in session data when accessing protected routes",
+      "rootCause": "Missing role propagation in NextAuth JWT callback",
+      "solution": "Add explicit role mapping in JWT callback function",
+      "codeSnippet": {
+        "before": "async jwt({ token, user }) {\n  if (user) {\n    token.id = user.id;\n  }\n  return token;\n}",
+        "after": "async jwt({ token, user }) {\n  if (user) {\n    token.id = user.id;\n    token.role = user.role;\n  }\n  return token;\n}"
+      },
+      "context": "The NextAuth JWT callback needs to explicitly add all user properties needed in the session. Role was missing resulting in permission issues.",
+      "dateResolved": "2025-03-02",
+      "version": "0.1.0"
+    },
+    {
+      "id": "AUTH-002",
+      "title": "Session expiration not handling refresh correctly",
+      "component": "Authentication",
+      "file": "app/api/auth/[...nextauth]/route.ts",
+      "error": "Users being logged out unexpectedly even with remember me checked",
+      "rootCause": "Session maxAge not correctly configured",
+      "solution": "Update session configuration with appropriate maxAge",
+      "codeSnippet": {
+        "before": "session: {\n  strategy: \"jwt\"\n}",
+        "after": "session: {\n  strategy: \"jwt\",\n  maxAge: 30 * 24 * 60 * 60 // 30 days\n}"
+      },
+      "context": "The session maxAge determines how long a session remains valid. Without an explicit value, sessions were expiring too quickly.",
+      "dateResolved": "2025-03-05",
+      "version": "0.1.0"
+    },
+    {
+      "id": "AUTH-003",
+      "title": "Middleware not correctly protecting routes",
+      "component": "Authentication",
+      "file": "middleware.ts",
+      "error": "Unauthenticated users able to access protected dashboard routes",
+      "rootCause": "Incorrect matcher configuration in middleware",
+      "solution": "Update matcher to include all protected paths",
+      "codeSnippet": {
+        "before": "export const config = {\n  matcher: [\"/dashboard\"]\n};",
+        "after": "export const config = {\n  matcher: [\"/dashboard/:path*\", \"/settings/:path*\", \"/batches/:path*\"]\n};"
+      },
+      "context": "The matcher pattern needs to include all protected paths with wildcards to catch all nested routes.",
+      "dateResolved": "2025-03-04",
+      "version": "0.1.0"
+    }
+  ]
+}

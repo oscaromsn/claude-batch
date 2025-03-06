@@ -1,0 +1,80 @@
+{
+  "components": {
+    "auth": {
+      "Login": {
+        "path": "app/(auth)/login/page.tsx",
+        "dependencies": ["react-hook-form", "zod", "next-auth"],
+        "intent": "User authentication via email/password",
+        "interfaces": ["handleLogin"]
+      },
+      "Register": {
+        "path": "app/(auth)/register/page.tsx",
+        "dependencies": ["react-hook-form", "zod", "prisma"],
+        "intent": "New user registration with database storage",
+        "interfaces": ["handleRegister"]
+      }
+    },
+    "dashboard": {
+      "Dashboard": {
+        "path": "app/(dashboard)/dashboard/page.tsx",
+        "dependencies": ["react-query", "prisma"],
+        "intent": "Display user's batch jobs and statistics",
+        "interfaces": ["fetchUserBatches", "batchStatusSummary"]
+      },
+      "Layout": {
+        "path": "app/(dashboard)/layout.tsx",
+        "dependencies": ["next-auth"],
+        "intent": "Authenticated layout wrapper with navigation",
+        "interfaces": ["protectedRoute"]
+      }
+    },
+    "batches": {
+      "BatchForm": {
+        "intent": "Create new batch processing job",
+        "interfaces": ["createBatch", "validateBatchInput"]
+      },
+      "BatchList": {
+        "intent": "Display and filter user's batch jobs",
+        "interfaces": ["fetchBatches", "filterBatches"]
+      },
+      "BatchDetail": {
+        "intent": "Show detailed information about a specific batch",
+        "interfaces": ["fetchBatchDetails", "fetchCompletions"]
+      }
+    },
+    "settings": {
+      "ApiKeys": {
+        "intent": "Manage user API keys",
+        "interfaces": ["createApiKey", "revokeApiKey", "listApiKeys"]
+      },
+      "Team": {
+        "intent": "Manage team members and permissions",
+        "interfaces": ["inviteUser", "removeUser", "updatePermissions"]
+      }
+    }
+  },
+  "apis": {
+    "auth": {
+      "nextauth": {
+        "path": "app/api/auth/[...nextauth]/route.ts",
+        "intent": "Authentication API routes",
+        "endpoints": ["/api/auth/signin", "/api/auth/callback", "/api/auth/signout"]
+      },
+      "register": {
+        "path": "app/api/auth/register/route.ts",
+        "intent": "User registration endpoint",
+        "endpoints": ["/api/auth/register"]
+      }
+    },
+    "batch": {
+      "intent": "Batch processing API endpoints",
+      "endpoints": ["/api/batch", "/api/batch/[id]"]
+    },
+    "webhook": {
+      "anthropic": {
+        "intent": "Webhook receiver for Anthropic batch completions",
+        "endpoints": ["/api/webhook/anthropic"]
+      }
+    }
+  }
+}

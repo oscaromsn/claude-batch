@@ -1,5 +1,6 @@
 import { Anthropic } from "@anthropic-ai/sdk";
 import { getEnv } from "@/lib/utils/env";
+import * as crypto from "crypto";
 
 export type Message = {
   role: "user" | "assistant";
@@ -64,20 +65,41 @@ export interface BatchListParams {
   status?: "in_progress" | "completed" | "failed" | "canceled";
 }
 
+export interface RetryOptions {
+  maxRetries: number;
+  initialDelay: number;
+  maxDelay: number;
+  factor: number;
+  retryableStatusCodes: number[];
+}
+
+/**
+ * @name ANTHROPIC_API_CLIENT
+ * @description Client for interacting with Anthropic API
+ */
 export class AnthropicClient {
   private client: Anthropic;
-  private readonly maxRetries: number;
+  private readonly retryOptions: RetryOptions;
   
-  constructor(apiKey?: string, maxRetries = 3) {
+  constructor(apiKey?: string, retryOptions?: Partial<RetryOptions>) {
     const env = getEnv();
     this.client = new Anthropic({
       apiKey: apiKey || env.ANTHROPIC_API_KEY,
     });
-    this.maxRetries = maxRetries;
+    
+    // Default retry options
+    this.retryOptions = {
+      maxRetries: 3,
+      initialDelay: 1000,
+      maxDelay: 60000,
+      factor: 2,
+      retryableStatusCodes: [429, 500, 502, 503, 504],
+      ...retryOptions
+    };
   }
   
   /**
-   * Create a new batch
+   * Create a new batch with automatic retries
    */
   async createBatch(params: BatchCreationParams): Promise<BatchResponse> {
     const { name, description, model, messages, system, temperature, maxTokens, stopSequences, metadata } = params;
@@ -88,8 +110,7 @@ export class AnthropicClient {
       content: message.content,
     }));
     
-    try {
-      // Note: The SDK types might be outdated, using any here and casting to our interface
+    const operation = async () => {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const response = await (this.client as any).batches.create({
         model,
@@ -111,30 +132,38 @@ export class AnthropicClient {
       });
       
       return response as BatchResponse;
+    };
+    
+    try {
+      return await this.withRetry(operation);
     } catch (error) {
-      console.error("Error creating batch:", error);
+      console.error("Error creating batch after retries:", error);
       throw this.handleError(error);
     }
   }
   
   /**
-   * Get batch details
+   * Get batch details with automatic retries
    */
   async getBatch(batchId: string): Promise<BatchResponse> {
-    try {
+    const operation = async () => {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       return await (this.client as any).batches.retrieve(batchId) as BatchResponse;
+    };
+    
+    try {
+      return await this.withRetry(operation);
     } catch (error) {
-      console.error(`Error retrieving batch ${batchId}:`, error);
+      console.error(`Error retrieving batch ${batchId} after retries:`, error);
       throw this.handleError(error);
     }
   }
   
   /**
-   * List all batches
+   * List all batches with automatic retries
    */
   async listBatches(params: BatchListParams = {}): Promise<{ data: BatchResponse[]; has_more: boolean }> {
-    try {
+    const operation = async () => {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       return await (this.client as any).batches.list({
         limit: params.limit,
@@ -143,23 +172,118 @@ export class AnthropicClient {
         before: params.before,
         status: params.status,
       }) as { data: BatchResponse[]; has_more: boolean };
+    };
+    
+    try {
+      return await this.withRetry(operation);
     } catch (error) {
-      console.error("Error listing batches:", error);
+      console.error("Error listing batches after retries:", error);
       throw this.handleError(error);
     }
   }
   
   /**
-   * Cancel a batch
+   * Cancel a batch with automatic retries
    */
   async cancelBatch(batchId: string): Promise<BatchResponse> {
-    try {
+    const operation = async () => {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       return await (this.client as any).batches.cancel(batchId) as BatchResponse;
+    };
+    
+    try {
+      return await this.withRetry(operation);
     } catch (error) {
-      console.error(`Error canceling batch ${batchId}:`, error);
+      console.error(`Error canceling batch ${batchId} after retries:`, error);
       throw this.handleError(error);
     }
+  }
+  
+  /**
+   * Clone an existing batch with modifications
+   */
+  async cloneBatch(batchId: string, modifications: Partial<BatchCreationParams> = {}): Promise<BatchResponse> {
+    // Get the original batch
+    const originalBatch = await this.getBatch(batchId);
+    
+    // Extract first completion's input as template
+    const firstCompletion = originalBatch.completions[0];
+    if (!firstCompletion) {
+      throw new Error("Original batch has no completions to clone");
+    }
+    
+    // Create new batch parameters based on original
+    const newParams: BatchCreationParams = {
+      name: modifications.name || `Clone of ${originalBatch.id}`,
+      description: modifications.description || `Cloned from batch ${originalBatch.id}`,
+      model: modifications.model || originalBatch.model,
+      messages: modifications.messages || (firstCompletion.input.messages as Message[]),
+      system: modifications.system || firstCompletion.input.system,
+      temperature: modifications.temperature || firstCompletion.input.temperature,
+      maxTokens: modifications.maxTokens || firstCompletion.input.max_tokens,
+      stopSequences: modifications.stopSequences || firstCompletion.input.stop_sequences,
+      metadata: {
+        ...firstCompletion.input.metadata,
+        originalBatchId: originalBatch.id,
+        ...(modifications.metadata || {})
+      }
+    };
+    
+    // Create the new batch
+    return this.createBatch(newParams);
+  }
+  
+  /**
+   * Verify webhook signature from Anthropic
+   */
+  verifyWebhookSignature(signature: string, timestamp: string, body: string): boolean {
+    const env = getEnv();
+    const webhookSecret = env.ANTHROPIC_WEBHOOK_SECRET;
+    
+    if (!webhookSecret) {
+      console.warn("Webhook secret not configured. Skipping signature verification.");
+      return true;
+    }
+    
+    const hmac = crypto.createHmac("sha256", webhookSecret);
+    const data = `${timestamp}.${body}`;
+    const expectedSignature = hmac.update(data).digest("hex");
+    
+    return signature === expectedSignature;
+  }
+  
+  /**
+   * Retry mechanism for API calls
+   */
+  private async withRetry<T>(operation: () => Promise<T>): Promise<T> {
+    const { maxRetries, initialDelay, maxDelay, factor, retryableStatusCodes } = this.retryOptions;
+    
+    let attempt = 0;
+    let delay = initialDelay;
+    
+    while (attempt < maxRetries) {
+      try {
+        return await operation();
+      } catch (error: any) {
+        attempt++;
+        
+        // Check if we should retry based on status code
+        if (!error.status || !retryableStatusCodes.includes(error.status) || attempt >= maxRetries) {
+          throw error;
+        }
+        
+        console.warn(`Anthropic API call failed with status ${error.status}. Retrying (${attempt}/${maxRetries}) in ${delay}ms...`);
+        
+        // Wait before retrying
+        await new Promise(resolve => setTimeout(resolve, delay));
+        
+        // Calculate next delay with exponential backoff, capped at maxDelay
+        delay = Math.min(delay * factor, maxDelay);
+      }
+    }
+    
+    // This should never be reached because the last attempt will either return or throw
+    throw new Error("Retry loop exited unexpectedly");
   }
   
   /**
