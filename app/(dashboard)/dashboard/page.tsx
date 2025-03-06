@@ -4,12 +4,13 @@ import { Bot, History, ListPlus, Settings } from "lucide-react";
 import { authOptions } from "@/lib/auth/auth";
 import { Button } from "../../../components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "../../../components/ui/card";
+import Link from "next/link";
 
 export default async function DashboardPage() {
   const session = await getServerSession(authOptions);
   
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
       <div>
         <h1 className="font-bold text-3xl tracking-tight">Dashboard</h1>
         <p className="text-muted-foreground">
@@ -17,7 +18,7 @@ export default async function DashboardPage() {
         </p>
       </div>
       
-      <div className="gap-4 grid md:grid-cols-2 lg:grid-cols-4">
+      <div className="gap-6 grid md:grid-cols-2 lg:grid-cols-4">
         <Card>
           <CardHeader className="flex flex-row justify-between items-center space-y-0 pb-2">
             <CardTitle className="font-medium text-sm">
@@ -32,6 +33,7 @@ export default async function DashboardPage() {
             </p>
           </CardContent>
         </Card>
+        
         <Card>
           <CardHeader className="flex flex-row justify-between items-center space-y-0 pb-2">
             <CardTitle className="font-medium text-sm">
@@ -46,6 +48,7 @@ export default async function DashboardPage() {
             </p>
           </CardContent>
         </Card>
+        
         <Card>
           <CardHeader className="flex flex-row justify-between items-center space-y-0 pb-2">
             <CardTitle className="font-medium text-sm">
@@ -54,11 +57,14 @@ export default async function DashboardPage() {
             <ListPlus className="w-4 h-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <Button variant="outline" className="w-full">
-              Create Batch
-            </Button>
+            <Link href="/batches/new">
+              <Button variant="outline" className="w-full">
+                Create Batch
+              </Button>
+            </Link>
           </CardContent>
         </Card>
+        
         <Card>
           <CardHeader className="flex flex-row justify-between items-center space-y-0 pb-2">
             <CardTitle className="font-medium text-sm">
@@ -67,9 +73,11 @@ export default async function DashboardPage() {
             <Settings className="w-4 h-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <Button variant="outline" className="w-full">
-              Manage Settings
-            </Button>
+            <Link href="/settings">
+              <Button variant="outline" className="w-full">
+                Manage Settings
+              </Button>
+            </Link>
           </CardContent>
         </Card>
       </div>
