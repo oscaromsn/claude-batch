@@ -2,6 +2,11 @@ import { Anthropic } from "@anthropic-ai/sdk";
 import { getEnv } from "@/lib/utils/env";
 import * as crypto from "crypto";
 
+// Add this interface for custom headers
+export interface CustomHeaders {
+  [key: string]: string;
+}
+
 export type Message = {
   role: "user" | "assistant";
   content: string;
@@ -55,6 +60,9 @@ export interface BatchCreationParams {
   maxTokens?: number;
   stopSequences?: string[];
   metadata?: Record<string, string>;
+  betaHeaders?: Array<{ name: string; value: string }>;
+  anthropicVersion?: string;
+  thinkingBudget?: number;
 }
 
 export interface BatchListParams {
@@ -71,6 +79,11 @@ export interface RetryOptions {
   maxDelay: number;
   factor: number;
   retryableStatusCodes: number[];
+}
+
+export interface AnthropicClientOptions {
+  apiKey?: string;
+  headers?: CustomHeaders;
 }
 
 /**
@@ -102,7 +115,7 @@ export class AnthropicClient {
    * Create a new batch with automatic retries
    */
   async createBatch(params: BatchCreationParams): Promise<BatchResponse> {
-    const { name, description, model, messages, system, temperature, maxTokens, stopSequences, metadata } = params;
+    const { name, description, model, messages, system, temperature, maxTokens, stopSequences, metadata, betaHeaders, anthropicVersion, thinkingBudget } = params;
     
     // Transform messages to Anthropic format
     const formattedMessages = messages.map(message => ({
@@ -111,8 +124,38 @@ export class AnthropicClient {
     }));
     
     const operation = async () => {
+      // Prepare client options with custom headers if provided
+      const clientOptions: AnthropicClientOptions = {};
+      
+      // Add beta headers if provided
+      if (betaHeaders && betaHeaders.length > 0) {
+        clientOptions.headers = {};
+        
+        betaHeaders.forEach(header => {
+          if (clientOptions.headers) {
+            clientOptions.headers[header.name] = header.value;
+          }
+        });
+      }
+      
+      // Add Anthropic API version if provided
+      if (anthropicVersion) {
+        if (!clientOptions.headers) {
+          clientOptions.headers = {};
+        }
+        clientOptions.headers["anthropic-version"] = anthropicVersion;
+      }
+      
+      // Create a new client instance with the custom headers if needed
+      const clientToUse = (betaHeaders && betaHeaders.length > 0 || anthropicVersion) 
+        ? new Anthropic({
+            apiKey: this.client.apiKey,
+            ...clientOptions
+          })
+        : this.client;
+      
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const response = await (this.client as any).batches.create({
+      const response = await (clientToUse as any).batches.create({
         model,
         inputs: [
           {
@@ -122,6 +165,7 @@ export class AnthropicClient {
             temperature,
             stop_sequences: stopSequences,
             metadata,
+            thinking_budget: thinkingBudget,
           },
         ],
         metadata: {
@@ -238,7 +282,7 @@ export class AnthropicClient {
    */
   verifyWebhookSignature(signature: string, timestamp: string, body: string): boolean {
     const env = getEnv();
-    const webhookSecret = env.ANTHROPIC_WEBHOOK_SECRET;
+    const webhookSecret = env.ANTHROPIC_WEBHOOK_SECRET as string | undefined;
     
     if (!webhookSecret) {
       console.warn("Webhook secret not configured. Skipping signature verification.");

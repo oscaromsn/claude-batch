@@ -14,6 +14,7 @@ import {
 import { authOptions } from "@/lib/auth/auth";
 import { Button } from "../../components/ui/button";
 import { SignOutButton } from "./components/signout-button";
+import { ThemeToggle } from "@/components/shared/theme-toggle";
 import {
   Sheet,
   SheetContent,
@@ -129,6 +130,7 @@ export default async function DashboardLayout({
                   </Button>
                 </Link>
               </div>
+              <ThemeToggle />
               <SignOutButton />
             </nav>
           </div>

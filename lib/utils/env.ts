@@ -12,6 +12,7 @@ const envSchema = z.object({
   
   // Anthropic API
   ANTHROPIC_API_KEY: z.string().min(1),
+  ANTHROPIC_WEBHOOK_SECRET: z.string().optional(),
   
   // NextAuth
   NEXTAUTH_SECRET: z.string().min(1),

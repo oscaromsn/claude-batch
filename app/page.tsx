@@ -2,6 +2,7 @@ import Link from "next/link";
 import { ArrowRight, Bot, Cpu, Database, Layers, Shield } from "lucide-react";
 
 import { Button } from "../components/ui/button";
+import { ThemeToggle } from "@/components/shared/theme-toggle";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../components/ui/card";
 
 export default function Home() {
@@ -15,6 +16,7 @@ export default function Home() {
               <span className="font-bold text-xl">Claude Batch</span>
             </div>
             <nav className="flex items-center gap-4">
+              <ThemeToggle />
               <Link href="/login">
                 <Button variant="ghost">Login</Button>
               </Link>

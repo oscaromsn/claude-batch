@@ -46,6 +46,7 @@ export async function POST(req: Request) {
           maxTokens: validatedData.maxTokens,
           stopSequences: validatedData.stopSequences || [],
           system: validatedData.system || null,
+          thinkingBudget: validatedData.thinkingBudget || null,
         },
         metadata: validatedData.metadata || {},
       },
@@ -66,20 +67,21 @@ export async function POST(req: Request) {
     
     // Submit to Anthropic API
     try {
-      const anthropicBatch = await anthropicClient.batches.create({
+      const anthropicBatch = await anthropicClient.createBatch({
+        name: validatedData.name,
+        description: validatedData.description,
         model: validatedData.model,
-        completions: completions.map(c => ({
-          input: {
-            messages: c.input.messages,
-            system: validatedData.system,
-            temperature: validatedData.temperature,
-            max_tokens: validatedData.maxTokens,
-            stop_sequences: validatedData.stopSequences,
-          },
-          metadata: {
-            completion_id: c.id,
-          },
-        })),
+        messages: validatedData.messages,
+        system: validatedData.system,
+        temperature: validatedData.temperature,
+        maxTokens: validatedData.maxTokens,
+        stopSequences: validatedData.stopSequences,
+        metadata: {
+          completion_id: completions[0].id,
+        },
+        betaHeaders: validatedData.betaHeaders,
+        anthropicVersion: validatedData.anthropicVersion,
+        thinkingBudget: validatedData.thinkingBudget,
       });
       
       // Update batch with Anthropic ID

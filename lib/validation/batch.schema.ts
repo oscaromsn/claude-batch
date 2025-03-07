@@ -14,6 +14,13 @@ export const batchCreationSchema = z.object({
   description: z.string().optional(),
   messages: z.array(messageSchema).min(1, "At least one message is required"),
   model: z.enum([
+    // Claude 3.7 models
+    "claude-3-7-sonnet-20240613", 
+    // Claude 3.5 models
+    "claude-3-5-sonnet-20241022",
+    "claude-3-5-haiku-20241022", 
+    "claude-3-5-sonnet-20240620",
+    // Claude 3 models
     "claude-3-opus-20240229", 
     "claude-3-sonnet-20240229", 
     "claude-3-haiku-20240307"
@@ -23,6 +30,14 @@ export const batchCreationSchema = z.object({
   stopSequences: z.array(z.string()).optional(),
   system: z.string().optional(),
   metadata: z.record(z.string()).optional(),
+  betaHeaders: z.array(
+    z.object({
+      name: z.string().min(1, "Header name is required"),
+      value: z.string().min(1, "Header value is required")
+    })
+  ).optional().default([]),
+  anthropicVersion: z.string().optional(),
+  thinkingBudget: z.number().int().nonnegative().optional(),
 });
 
 export type BatchCreation = z.infer<typeof batchCreationSchema>;
