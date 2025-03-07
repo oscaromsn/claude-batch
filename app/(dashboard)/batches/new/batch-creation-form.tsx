@@ -101,6 +101,7 @@ export default function BatchCreationForm() {
   const [tokenLimit, setTokenLimit] = useState(defaultModelLimits.standardLimit);
   const [currentModel, setCurrentModel] = useState<string>(defaultModel);
   const [thinkingBudget, setThinkingBudget] = useState(5000);
+  const [temperatureValue, setTemperatureValue] = useState(0.7);
 
   const form = useForm<BatchCreation>({
     resolver: zodResolver(batchCreationSchema),
@@ -179,6 +180,16 @@ export default function BatchCreationForm() {
   useEffect(() => {
     validateTokenLimits();
   }, [form.watch("maxTokens"), form.watch("thinkingBudget"), isThinkingEnabled]);
+
+  // Listen for temperature changes from the form
+  useEffect(() => {
+    const subscription = form.watch((value, { name }) => {
+      if (name === "temperature" && value.temperature !== undefined) {
+        setTemperatureValue(value.temperature as number);
+      }
+    });
+    return () => subscription.unsubscribe();
+  }, [form.watch]);
 
   // Function to validate token limits
   const validateTokenLimits = () => {
@@ -424,15 +435,49 @@ export default function BatchCreationForm() {
 
             <div>
               <Label htmlFor="temperature" className="block mb-1 font-medium">Temperature</Label>
-              <Input
-                id="temperature"
-                type="number"
-                step="0.1"
-                min="0"
-                max="1"
-                {...form.register("temperature", { valueAsNumber: true })}
-              />
-              <p className="mt-1 text-gray-500 text-xs">Controls randomness (0-1)</p>
+              <div className="flex flex-col space-y-2">
+                <div className="flex items-center space-x-2">
+                  <span className="text-gray-500 text-xs">0</span>
+                  <div className="relative flex-1">
+                    <input
+                      id="temperature-slider"
+                      type="range"
+                      min="0"
+                      max="1"
+                      step="0.01"
+                      value={temperatureValue}
+                      onChange={(e) => {
+                        const value = parseFloat(e.target.value);
+                        setTemperatureValue(value);
+                        form.setValue("temperature", value);
+                      }}
+                      className="bg-gray-200 rounded-lg w-full h-2 accent-indigo-600 appearance-none cursor-pointer"
+                    />
+                  </div>
+                  <span className="text-gray-500 text-xs">1</span>
+                  <Input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    max="1"
+                    value={temperatureValue}
+                    onChange={(e) => {
+                      const value = parseFloat(e.target.value);
+                      setTemperatureValue(value);
+                      form.setValue("temperature", value);
+                    }}
+                    className="w-16 h-8 text-xs text-center"
+                  />
+                </div>
+                <div className="mt-1 text-gray-500 text-sm">
+                  <p className="text-xs">Controls randomness in the response:</p>
+                  <ul className="mt-1 pl-4 text-xs list-disc">
+                    <li><strong>Lower values (0-0.3):</strong> More focused, deterministic responses</li> 
+                    <li><strong>Medium values (0.4-0.7):</strong> Balanced creativity and coherence</li>
+                    <li><strong>Higher values (0.8-1.0):</strong> More diverse and creative outputs</li>
+                  </ul>
+                </div>
+              </div>
             </div>
 
             <div>
