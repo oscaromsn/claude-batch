@@ -1,11 +1,16 @@
 import Link from "next/link";
 import { ArrowRight, Bot, Cpu, Database, Layers, Shield } from "lucide-react";
+import { getServerSession } from "next-auth";
 
+import { authOptions } from "@/lib/auth/auth";
 import { Button } from "../components/ui/button";
 import { ThemeToggle } from "@/components/shared/theme-toggle";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../components/ui/card";
 
-export default function Home() {
+export default async function Home() {
+  const session = await getServerSession(authOptions);
+  const isLoggedIn = !!session?.user;
+
   return (
     <div className="flex flex-col min-h-screen">
       <header className="top-0 z-40 sticky bg-background border-b">
@@ -17,12 +22,20 @@ export default function Home() {
             </div>
             <nav className="flex items-center gap-4">
               <ThemeToggle />
-              <Link href="/login">
-                <Button variant="ghost">Login</Button>
-              </Link>
-              <Link href="/register">
-                <Button>Get Started</Button>
-              </Link>
+              {isLoggedIn ? (
+                <Link href="/dashboard">
+                  <Button>Dashboard</Button>
+                </Link>
+              ) : (
+                <>
+                  <Link href="/login">
+                    <Button variant="ghost">Login</Button>
+                  </Link>
+                  <Link href="/register">
+                    <Button>Get Started</Button>
+                  </Link>
+                </>
+              )}
             </nav>
           </div>
         </div>
@@ -39,16 +52,26 @@ export default function Home() {
                 A production-ready interface for the Anthropic Batch API. Process thousands of prompts efficiently with real-time status tracking.
               </p>
               <div className="flex flex-wrap justify-center gap-4">
-                <Link href="/register">
-                  <Button size="lg" className="gap-1">
-                    Get Started <ArrowRight className="w-4 h-4" />
-                  </Button>
-                </Link>
-                <Link href="/login">
-                  <Button size="lg" variant="outline">
-                    Login
-                  </Button>
-                </Link>
+                {isLoggedIn ? (
+                  <Link href="/dashboard">
+                    <Button size="lg" className="gap-1">
+                      Go to Dashboard <ArrowRight className="w-4 h-4" />
+                    </Button>
+                  </Link>
+                ) : (
+                  <>
+                    <Link href="/register">
+                      <Button size="lg" className="gap-1">
+                        Get Started <ArrowRight className="w-4 h-4" />
+                      </Button>
+                    </Link>
+                    <Link href="/login">
+                      <Button size="lg" variant="outline">
+                        Login
+                      </Button>
+                    </Link>
+                  </>
+                )}
               </div>
             </div>
           </div>
