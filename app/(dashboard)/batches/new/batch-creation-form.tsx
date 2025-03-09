@@ -194,10 +194,28 @@ export default function BatchCreationForm() {
   // Function to validate token limits
   const validateTokenLimits = () => {
     const maxOutput = Number(form.getValues("maxTokens")) || 0;
-    const thinkingBudget = isThinkingEnabled ? (Number(form.getValues("thinkingBudget")) || 0) : 0;
-    const totalTokens = maxOutput + thinkingBudget;
     
-    setTokenLimitExceeded(totalTokens > tokenLimit);
+    // When thinking mode is enabled, we don't need to add thinking budget
+    // to the total for validation, as the form's maxTokens value is already
+    // limited by the appropriate thinkingLimit (64000 for Claude 3.7)
+    
+    // Get the current token limit based on model and flags
+    const modelLimits = MODEL_TOKEN_LIMITS[currentModel as keyof typeof MODEL_TOKEN_LIMITS];
+    let effectiveLimit = modelLimits?.standardLimit || tokenLimit;
+    
+    // 128k flag takes precedence
+    const hasOutputFlag = betaHeaderFields.some(
+      field => field.name === "anthropic-beta" && field.value === "output-128k-2025-02-19"
+    );
+    
+    if (hasOutputFlag && currentModel === "claude-3-7-sonnet-20240613") {
+      effectiveLimit = modelLimits?.extendedLimit || effectiveLimit;
+    } else if (isThinkingEnabled && modelLimits?.supportsThinking) {
+      effectiveLimit = modelLimits?.thinkingLimit || effectiveLimit;
+    }
+    
+    // Check if maxOutput exceeds the limit
+    setTokenLimitExceeded(maxOutput > effectiveLimit);
   };
 
   // Add beta header suggestion
@@ -296,10 +314,23 @@ export default function BatchCreationForm() {
     try {
       // Validate token limits before submitting
       const maxOutput = Number(data.maxTokens) || 0;
-      const thinkingBudget = isThinkingEnabled ? (Number(data.thinkingBudget) || 0) : 0;
-      const totalTokens = maxOutput + thinkingBudget;
       
-      if (totalTokens > tokenLimit) {
+      // Get the appropriate limit based on model and enabled features
+      const modelLimits = MODEL_TOKEN_LIMITS[data.model as keyof typeof MODEL_TOKEN_LIMITS];
+      let effectiveLimit = modelLimits?.standardLimit || tokenLimit;
+      
+      // 128k flag takes precedence
+      const hasOutputFlag = data.betaHeaders.some(
+        header => header.name === "anthropic-beta" && header.value === "output-128k-2025-02-19"
+      );
+      
+      if (hasOutputFlag && data.model === "claude-3-7-sonnet-20240613") {
+        effectiveLimit = modelLimits?.extendedLimit || effectiveLimit;
+      } else if (isThinkingEnabled && modelLimits?.supportsThinking) {
+        effectiveLimit = modelLimits?.thinkingLimit || effectiveLimit;
+      }
+      
+      if (maxOutput > effectiveLimit) {
         return; // Prevent submission if token limit is exceeded
       }
       
