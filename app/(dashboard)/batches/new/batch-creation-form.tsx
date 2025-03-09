@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useForm, useFieldArray } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Trash2, Plus, Loader2, Check, LightbulbIcon, BeakerIcon } from "lucide-react";
+import { Trash2, Plus, Loader2, Check, LightbulbIcon, BeakerIcon, AlertTriangle } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -96,11 +96,12 @@ export default function BatchCreationForm() {
   const [hasExtendedOutputFlag, setHasExtendedOutputFlag] = useState(false);
   const [isThinkingEnabled, setIsThinkingEnabled] = useState(false);
   const [tokenLimitExceeded, setTokenLimitExceeded] = useState(false);
+  const [thinkingBudget, setThinkingBudget] = useState(5000);
+  const [thinkingBudgetExceedsMax, setThinkingBudgetExceedsMax] = useState(false);
   const defaultModel = "claude-3-7-sonnet-20240613";
   const defaultModelLimits = MODEL_TOKEN_LIMITS[defaultModel];
   const [tokenLimit, setTokenLimit] = useState(defaultModelLimits.standardLimit);
   const [currentModel, setCurrentModel] = useState<string>(defaultModel);
-  const [thinkingBudget, setThinkingBudget] = useState(5000);
   const [temperatureValue, setTemperatureValue] = useState(0.7);
 
   const form = useForm<BatchCreation>({
@@ -194,6 +195,7 @@ export default function BatchCreationForm() {
   // Function to validate token limits
   const validateTokenLimits = () => {
     const maxOutput = Number(form.getValues("maxTokens")) || 0;
+    const currentThinkingBudget = Number(form.getValues("thinkingBudget")) || 0;
     
     // When thinking mode is enabled, we don't need to add thinking budget
     // to the total for validation, as the form's maxTokens value is already
@@ -216,6 +218,13 @@ export default function BatchCreationForm() {
     
     // Check if maxOutput exceeds the limit
     setTokenLimitExceeded(maxOutput > effectiveLimit);
+    
+    // Check if thinking budget exceeds max output tokens when thinking is enabled
+    if (isThinkingEnabled) {
+      setThinkingBudgetExceedsMax(currentThinkingBudget > maxOutput);
+    } else {
+      setThinkingBudgetExceedsMax(false);
+    }
   };
 
   // Add beta header suggestion
@@ -290,6 +299,9 @@ export default function BatchCreationForm() {
           form.setValue("maxTokens", newLimit);
         }
       }
+      
+      // Validate token limits including thinking budget
+      validateTokenLimits();
     } else {
       // Default thinking budget
       form.setValue("thinkingBudget", 5000);
@@ -307,6 +319,9 @@ export default function BatchCreationForm() {
           form.setValue("maxTokens", modelLimits.thinkingLimit);
         }
       }
+      
+      // Validate token limits including thinking budget
+      validateTokenLimits();
     }
   };
 
@@ -519,7 +534,12 @@ export default function BatchCreationForm() {
                 min="1"
                 max={tokenLimit}
                 className={tokenLimitExceeded ? "border-red-500" : ""}
-                {...form.register("maxTokens", { valueAsNumber: true })}
+                {...form.register("maxTokens", { 
+                  valueAsNumber: true,
+                  onChange: () => {
+                    validateTokenLimits();
+                  }
+                })}
               />
               <p className={`mt-1 text-xs ${tokenLimitExceeded ? "text-red-500 font-medium" : "text-gray-500"}`}>
                 Limit: {tokenLimit.toLocaleString()} tokens
@@ -565,13 +585,20 @@ export default function BatchCreationForm() {
                       const value = parseInt(e.target.value) || 0;
                       setThinkingBudget(value);
                       form.setValue("thinkingBudget", value);
+                      validateTokenLimits();
                     }}
                     min="5000"
-                    max="100000"
+                    max={hasExtendedOutputFlag && currentModel === "claude-3-7-sonnet-20240613" ? "128000" : "100000"}
+                    className={thinkingBudgetExceedsMax ? "border-amber-500" : ""}
                     step="1000"
-                    className="mb-2"
                   />
-                  <div className="text-blue-700 text-xs">
+                  {thinkingBudgetExceedsMax && (
+                    <p className="flex items-center mt-1 text-amber-600 text-sm">
+                      <AlertTriangle className="mr-1 w-4 h-4" />
+                      Thinking budget cannot exceed max output tokens
+                    </p>
+                  )}
+                  <div className="mt-1 text-blue-700 text-xs">
                     Recommended: 5,000-10,000 tokens. Allows Claude to work through complex problems step-by-step.
                   </div>
                 </div>
