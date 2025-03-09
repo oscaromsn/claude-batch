@@ -3,13 +3,13 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { 
-  ArrowRight, 
   CheckCircle2, 
   Clock, 
   Download, 
   Info, 
   LucideIcon, 
   PauseCircle, 
+  RefreshCw,
   Trash2, 
   XCircle 
 } from "lucide-react";
@@ -20,8 +20,6 @@ import { Badge } from "@/components/ui/badge";
 import { 
   Card, 
   CardContent, 
-  CardDescription, 
-  CardFooter, 
   CardHeader, 
   CardTitle 
 } from "@/components/ui/card";
@@ -45,7 +43,6 @@ import {
 import { Separator } from "@/components/ui/separator";
 import { toast } from "@/components/ui/use-toast";
 
-import { getBatchById } from "@/lib/api/batches";
 import { type Batch, type BatchStatus } from "@prisma/client";
 import { capitalize } from "@/lib/utils";
 
@@ -88,21 +85,13 @@ const STATUS_CONFIG: Record<BatchStatus, {
   }
 };
 
-export async function BatchDetailView({ batchId }: { batchId: string }) {
-  const batch = await getBatchById(batchId);
-  
-  if (!batch) {
-    throw new Error("Batch not found");
-  }
-  
-  return <BatchDetailViewClient batch={batch} />;
-}
-
-function BatchDetailViewClient({ batch }: { batch: Batch }) {
+// Client component to receive batch data from server component
+export function BatchDetailView({ batch }: { batch: Batch }) {
   const router = useRouter();
   const [isDeleting, setIsDeleting] = useState(false);
   const [isCanceling, setIsCanceling] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
+  const [isSyncing, setIsSyncing] = useState(false);
   
   // Batch status info
   const statusInfo = STATUS_CONFIG[batch.status];
@@ -143,7 +132,7 @@ function BatchDetailViewClient({ batch }: { batch: Batch }) {
       });
       
       router.refresh();
-    } catch (error) {
+    } catch (error: unknown) {
       toast({
         title: "Error",
         description: "Failed to cancel batch.",
@@ -172,7 +161,7 @@ function BatchDetailViewClient({ batch }: { batch: Batch }) {
       });
       
       router.push("/batches");
-    } catch (error) {
+    } catch (error: unknown) {
       toast({
         title: "Error",
         description: "Failed to delete batch.",
@@ -208,7 +197,7 @@ function BatchDetailViewClient({ batch }: { batch: Batch }) {
         title: "Batch exported",
         description: `Batch "${batch.name}" has been exported.`,
       });
-    } catch (error) {
+    } catch (error: unknown) {
       toast({
         title: "Error",
         description: "Failed to export batch.",
@@ -218,6 +207,44 @@ function BatchDetailViewClient({ batch }: { batch: Batch }) {
       setIsExporting(false);
     }
   };
+
+  // Handle batch sync with Anthropic
+  const syncWithAnthropic = async () => {
+    setIsSyncing(true);
+    try {
+      const response = await fetch(`/api/batches/${batch.id}/sync`, {
+        method: "POST",
+      });
+      
+      if (!response.ok) {
+        throw new Error("Failed to sync batch with Anthropic");
+      }
+      
+      const updatedBatch = await response.json();
+      
+      toast({
+        title: "Batch synced",
+        description: `Batch "${batch.name}" has been synced with Anthropic.`,
+      });
+      
+      router.refresh();
+    } catch (error: unknown) {
+      toast({
+        title: "Error",
+        description: "Failed to sync batch with Anthropic.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSyncing(false);
+    }
+  };
+  
+  // Get the last synced time from metadata
+  const metadata = batch.metadata as Record<string, any> || {};
+  const lastSyncedAt = metadata.lastSyncedAt ? new Date(metadata.lastSyncedAt) : null;
+  const lastSyncedTime = lastSyncedAt 
+    ? `Last synced: ${format(lastSyncedAt, 'MMM d, yyyy h:mm a')}`
+    : 'Not synced yet';
   
   return (
     <div className="space-y-6">
@@ -230,6 +257,23 @@ function BatchDetailViewClient({ batch }: { batch: Batch }) {
         </div>
         
         <div className="flex items-center gap-2">
+          {/* Sync with Anthropic button */}
+          {(batch.status === "PENDING" || batch.status === "IN_PROGRESS") && (
+            <Button 
+              variant="outline" 
+              onClick={syncWithAnthropic}
+              disabled={isSyncing}
+              className="space-x-2"
+            >
+              {isSyncing ? (
+                <RefreshCw className="mr-2 w-4 h-4 animate-spin" />
+              ) : (
+                <RefreshCw className="mr-2 w-4 h-4" />
+              )}
+              Sync with Anthropic
+            </Button>
+          )}
+          
           {/* Cancel button (only for pending or in_progress batches) */}
           {(batch.status === "PENDING" || batch.status === "IN_PROGRESS") && (
             <Button 
@@ -297,18 +341,31 @@ function BatchDetailViewClient({ batch }: { batch: Batch }) {
       {/* Status and metadata cards */}
       <div className="gap-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4">
         {/* Status card */}
-        <Card>
+        <Card className="overflow-hidden">
           <CardHeader className="pb-2">
             <CardTitle className="font-medium text-sm">Status</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="flex items-center gap-2">
-              <statusInfo.icon className={`h-5 w-5 ${statusInfo.color}`} />
-              <div>
-                <div className="font-semibold">{statusInfo.label}</div>
-                <p className="text-muted-foreground text-xs">{statusInfo.description}</p>
-              </div>
+            <div className="flex items-center space-x-2">
+              <statusInfo.icon className={`w-5 h-5 ${statusInfo.color}`} />
+              <span className="font-medium">{statusInfo.label}</span>
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Info className="w-4 h-4 text-muted-foreground cursor-help" />
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>{statusInfo.description}</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
             </div>
+            {/* Display last synced info */}
+            {batch.anthropicId && (
+              <p className="mt-2 text-muted-foreground text-xs">
+                {lastSyncedTime}
+              </p>
+            )}
           </CardContent>
         </Card>
         

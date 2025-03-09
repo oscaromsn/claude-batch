@@ -4,7 +4,7 @@ import { ZodError } from "zod";
 
 import { authOptions } from "@/lib/auth/auth";
 import { anthropicClient } from "@/lib/api/anthropic";
-import { prisma } from "@/lib/db/prisma";
+import { db } from "@/lib/db/prisma";
 import { batchCreationSchema } from "@/lib/validation/batch.schema";
 
 /**
@@ -28,7 +28,7 @@ export async function POST(req: Request) {
     const validatedData = batchCreationSchema.parse(body);
     
     // Get user with API credentials
-    const user = await prisma.user.findUnique({
+    const user = await db.user.findUnique({
       where: { id: session.user.id },
       select: {
         id: true,
@@ -52,7 +52,7 @@ export async function POST(req: Request) {
     }));
     
     // Create batch in database
-    const batch = await prisma.batch.create({
+    const batch = await db.batch.create({
       data: {
         name: validatedData.name,
         description: validatedData.description || null,
@@ -73,7 +73,7 @@ export async function POST(req: Request) {
     // Create completions
     const completions = await Promise.all(
       [messages].map(input => 
-        prisma.completion.create({
+        db.completion.create({
           data: {
             batchId: batch.id,
             status: "PENDING",
@@ -103,7 +103,7 @@ export async function POST(req: Request) {
       });
       
       // Update batch with Anthropic ID
-      await prisma.batch.update({
+      await db.batch.update({
         where: { id: batch.id },
         data: {
           anthropicId: anthropicBatch.id,
@@ -117,7 +117,7 @@ export async function POST(req: Request) {
       console.error("Anthropic API error:", error);
       
       // Update batch status to FAILED
-      await prisma.batch.update({
+      await db.batch.update({
         where: { id: batch.id },
         data: {
           status: "FAILED",

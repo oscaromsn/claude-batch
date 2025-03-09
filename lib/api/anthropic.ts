@@ -114,6 +114,11 @@ export class AnthropicClient {
       retryableStatusCodes: [429, 500, 502, 503, 504],
       ...retryOptions
     };
+    
+    // Check if beta features are enabled and the client is properly configured
+    if (!this.client.beta?.messages?.batches) {
+      console.warn("Anthropic client doesn't have beta.messages.batches support. Batch operations may fail.");
+    }
   }
   
   /**
@@ -174,28 +179,47 @@ export class AnthropicClient {
           })
         : this.client;
       
+      // Prepare parameters for the batch request
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const response = await (clientToUse as any).batches.create({
-        model,
-        inputs: [
-          {
-            messages: formattedMessages,
-            system,
-            max_tokens: maxTokens,
-            temperature,
-            stop_sequences: stopSequences,
-            metadata,
-            thinking_budget: thinkingBudget,
-          },
-        ],
-        metadata: {
-          name,
-          description,
-          ...metadata,
-        },
+      const requestParams: any = {
+        custom_id: name,
+        params: {
+          model,
+          messages: formattedMessages,
+          system,
+          temperature,
+          stop_sequences: stopSequences,
+          // Add description if provided
+          ...(description ? { description } : {})
+        }
+      };
+
+      // Add optional parameters only if they are defined
+      if (maxTokens !== undefined) {
+        requestParams.params.max_tokens = maxTokens;
+      }
+
+      if (thinkingBudget !== undefined) {
+        requestParams.params.thinking_budget = thinkingBudget;
+      }
+      
+      // Add metadata if provided, ensuring all values are strings
+      if (metadata) {
+        requestParams.params.metadata = Object.entries(metadata).reduce((acc, [key, value]) => {
+          acc[key] = String(value);
+          return acc;
+        }, {} as Record<string, string>);
+      }
+
+      // Create the batch
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const response = await clientToUse.beta.messages.batches.create({
+        requests: [requestParams],
       });
       
-      return response as BatchResponse;
+      // Convert response to any since the SDK types have changed
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      return response as any;
     };
     
     try {
@@ -211,8 +235,8 @@ export class AnthropicClient {
    */
   async getBatch(batchId: string): Promise<BatchResponse> {
     const operation = async () => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      return await (this.client as any).batches.retrieve(batchId) as BatchResponse;
+      // Use the correct beta.messages.batches path to match how batches are created
+      return await this.client.beta.messages.batches.retrieve(batchId) as unknown as BatchResponse;
     };
     
     try {
@@ -224,18 +248,12 @@ export class AnthropicClient {
   }
   
   /**
-   * List all batches with automatic retries
+   * List batches with automatic retries
    */
-  async listBatches(params: BatchListParams = {}): Promise<{ data: BatchResponse[]; has_more: boolean }> {
+  async listBatches(params?: BatchListParams): Promise<BatchResponse[]> {
     const operation = async () => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      return await (this.client as any).batches.list({
-        limit: params.limit,
-        order: params.order,
-        after: params.after,
-        before: params.before,
-        status: params.status,
-      }) as { data: BatchResponse[]; has_more: boolean };
+      // Use the correct beta.messages.batches path
+      return await this.client.beta.messages.batches.list(params || {}) as unknown as BatchResponse[];
     };
     
     try {
@@ -251,8 +269,8 @@ export class AnthropicClient {
    */
   async cancelBatch(batchId: string): Promise<BatchResponse> {
     const operation = async () => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      return await (this.client as any).batches.cancel(batchId) as BatchResponse;
+      // Use the correct beta.messages.batches path
+      return await this.client.beta.messages.batches.cancel(batchId) as unknown as BatchResponse;
     };
     
     try {
@@ -327,26 +345,32 @@ export class AnthropicClient {
     while (attempt < maxRetries) {
       try {
         return await operation();
-      } catch (error: any) {
+      } catch (error: unknown) {
         attempt++;
         
         // Check if we should retry based on status code
-        if (!error.status || !retryableStatusCodes.includes(error.status) || attempt >= maxRetries) {
+        // First check if error is an object with a status property
+        if (
+          !(error && typeof error === 'object' && 'status' in error) || 
+          !retryableStatusCodes.includes(Number((error as { status: number }).status)) || 
+          attempt >= maxRetries
+        ) {
           throw error;
         }
         
-        console.warn(`Anthropic API call failed with status ${error.status}. Retrying (${attempt}/${maxRetries}) in ${delay}ms...`);
+        const errorStatus = (error as { status: number }).status;
+        console.warn(`Anthropic API call failed with status ${errorStatus}. Retrying (${attempt}/${maxRetries}) in ${delay}ms...`);
         
         // Wait before retrying
         await new Promise(resolve => setTimeout(resolve, delay));
         
-        // Calculate next delay with exponential backoff, capped at maxDelay
-        delay = Math.min(delay * factor, maxDelay);
+        // Exponential backoff with jitter
+        const jitter = Math.random() * 0.3 + 0.85; // Random value between 0.85 and 1.15
+        delay = Math.min(delay * factor * jitter, maxDelay);
       }
     }
     
-    // This should never be reached because the last attempt will either return or throw
-    throw new Error("Retry loop exited unexpectedly");
+    throw new Error(`Operation failed after ${maxRetries} retries`);
   }
   
   /**

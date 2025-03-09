@@ -117,6 +117,7 @@ export default function BatchCreationForm() {
       anthropicVersion: "2023-06-01",
       thinkingBudget: 5000
     },
+    mode: "onChange"
   });
 
   const { fields, append, remove } = useFieldArray({
@@ -327,6 +328,19 @@ export default function BatchCreationForm() {
 
   async function onSubmit(data: BatchCreation) {
     try {
+      // Validate that all messages have content
+      const emptyMessages = data.messages.filter(msg => !msg.content || msg.content.trim() === "");
+      if (emptyMessages.length > 0) {
+        // Highlight the empty message fields
+        emptyMessages.forEach((_, index) => {
+          form.setError(`messages.${index}.content` as const, {
+            type: "manual",
+            message: "Message content is required"
+          });
+        });
+        return; // Prevent submission if any message is empty
+      }
+      
       // Validate token limits before submitting
       const maxOutput = Number(data.maxTokens) || 0;
       
@@ -364,15 +378,17 @@ export default function BatchCreationForm() {
       });
 
       if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.message || "Failed to create batch");
+        const errorData = await response.json();
+        console.error("API error details:", errorData);
+        throw new Error(errorData.message || errorData.error || "Failed to create batch");
       }
 
-      router.push("/dashboard");
+      router.push("/batches");
       router.refresh();
     } catch (error) {
       console.error("Error creating batch:", error);
-      // Handle error (show toast notification, etc.)
+      // Show error to user
+      alert(`Error creating batch: ${error instanceof Error ? error.message : "Unknown error"}`);
     } finally {
       setIsSubmitting(false);
     }
@@ -648,7 +664,11 @@ export default function BatchCreationForm() {
                   </Button>
                 </div>
                 <Input
-                  {...form.register(`messages.${index}.content`)}
+                  {...form.register(`messages.${index}.content`, {
+                    onChange: (e) => {
+                      form.setValue(`messages.${index}.content`, e.target.value);
+                    }
+                  })}
                   placeholder="Enter message content"
                   className={form.formState.errors.messages?.[index]?.content ? "border-red-500" : ""}
                 />

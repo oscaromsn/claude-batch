@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth/next";
 
 import { authOptions } from "@/lib/auth/auth";
-import { prisma } from "@/lib/db/prisma";
+import { db } from "@/lib/db/prisma";
 import { anthropicClient } from "@/lib/api/anthropic";
 
 /**
@@ -24,7 +24,7 @@ export async function GET(
     
     const { id } = params;
     
-    const batch = await prisma.batch.findUnique({
+    const batch = await db.batch.findUnique({
       where: {
         id,
         userId: session.user.id,
@@ -72,7 +72,7 @@ export async function DELETE(
     const { id } = params;
     
     // Get the batch
-    const batch = await prisma.batch.findUnique({
+    const batch = await db.batch.findUnique({
       where: {
         id,
         userId: session.user.id,
@@ -97,7 +97,7 @@ export async function DELETE(
     // Cancel the batch in Anthropic if it has an Anthropic ID
     if (batch.anthropicId) {
       try {
-        await anthropicClient.batches.cancel(batch.anthropicId);
+        await anthropicClient.cancelBatch(batch.anthropicId);
       } catch (error: any) {
         console.error("Error canceling batch in Anthropic:", error);
         // Continue even if Anthropic cancellation fails
@@ -105,7 +105,7 @@ export async function DELETE(
     }
     
     // Update batch status in database
-    await prisma.batch.update({
+    await db.batch.update({
       where: { id },
       data: {
         status: "CANCELED",

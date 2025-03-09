@@ -1,20 +1,29 @@
 import { Suspense } from "react";
 import Link from "next/link";
-import { ArrowLeft, Check, Download, PauseCircle, Trash2, XCircle } from "lucide-react";
+import { ArrowLeft } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Separator } from "@/components/ui/separator";
 import { PageHeader, PageHeaderDescription, PageHeaderHeading } from "@/components/page-header";
-import { BatchDetailView } from "./components/batch-detail-view";
-import { CompletionsList } from "./components/completions-list";
+import { BatchDetailServer } from "./components/batch-detail-server";
+import { CompletionsServer } from "./components/completions-server";
 
 export const metadata = {
   title: "Batch Details",
   description: "View details and manage batch completions",
 };
 
-export default function BatchDetailPage({ params }: { params: { id: string } }) {
+type BatchDetailPageProps = {
+  params: Promise<{
+    id: string;
+  }>;
+};
+
+export default async function BatchDetailPage(props: BatchDetailPageProps) {
+  const params = await props.params;
+  const { id } = params;
+  
   return (
     <div className="space-y-6 py-6 container">
       <div className="flex items-center gap-2">
@@ -26,18 +35,18 @@ export default function BatchDetailPage({ params }: { params: { id: string } }) 
         <PageHeader>
           <PageHeaderHeading>Batch Details</PageHeaderHeading>
           <PageHeaderDescription>
-            View and manage this batch's completions
+            View and manage this batch&apos;s completions
           </PageHeaderDescription>
         </PageHeader>
       </div>
       <Separator />
       
       <Suspense fallback={<BatchDetailSkeleton />}>
-        <BatchDetailView batchId={params.id} />
+        <BatchDetailServer batchId={id} />
       </Suspense>
       
       <Suspense fallback={<CompletionsListSkeleton />}>
-        <CompletionsList batchId={params.id} />
+        <CompletionsServer batchId={id} />
       </Suspense>
     </div>
   );

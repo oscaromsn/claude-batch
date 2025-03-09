@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
-import { prisma } from "@/lib/db/prisma";
+import { db } from "@/lib/db/prisma";
 import * as crypto from "crypto";
 import { anthropicClient } from "@/lib/api/anthropic";
+import { syncBatchWithAnthropic } from "@/lib/services/batchSyncService";
 
 /**
  * @name BATCH_WEBHOOK_HANDLER
@@ -13,9 +14,12 @@ export async function POST(req: Request) {
     const clonedReq = req.clone();
     const signature = req.headers.get("anthropic-signature");
     const timestamp = req.headers.get("anthropic-timestamp");
+    const webhookId = req.headers.get("anthropic-webhook-id") || "unknown";
+    
+    console.log(`Received Anthropic webhook: ${webhookId}`);
     
     if (!signature || !timestamp) {
-      console.error("Missing webhook signature headers");
+      console.error(`Missing webhook signature headers for webhook ${webhookId}`);
       return new Response("Unauthorized", { status: 401 });
     }
     
@@ -25,20 +29,23 @@ export async function POST(req: Request) {
     // Extract batch ID
     const batchId = payload.batch_id;
     if (!batchId) {
-      console.error("Missing batch ID in webhook payload");
+      console.error(`Missing batch ID in webhook payload for webhook ${webhookId}`);
       return new Response("Missing batch ID", { status: 400 });
     }
     
     // Find batch in database to get user's webhook secret
-    const batch = await prisma.batch.findUnique({
+    const batch = await db.batch.findUnique({
       where: { anthropicId: batchId },
       include: { user: true }
     });
     
     if (!batch) {
-      console.error(`Batch not found for ID: ${batchId}`);
+      console.error(`Batch not found for Anthropic ID: ${batchId} (webhook ${webhookId})`);
       return new Response("Batch not found", { status: 404 });
     }
+    
+    // Log webhook event
+    console.log(`Processing webhook ${webhookId} for batch ${batch.id} (${batch.name}): ${payload.type}`);
     
     // Verify the webhook signature using either the user's webhook secret or the default one
     const webhookSecret = batch.user.anthropicWebhookSecret || process.env.ANTHROPIC_WEBHOOK_SECRET;
@@ -55,22 +62,48 @@ export async function POST(req: Request) {
     }
     
     if (!signatureValid) {
-      console.error("Invalid webhook signature");
+      console.error(`Invalid webhook signature for webhook ${webhookId}`);
       return new Response("Unauthorized", { status: 401 });
     }
     
-    console.log("Received webhook from Anthropic:", payload.type);
+    // Add webhook info to batch metadata
+    await db.batch.update({
+      where: { id: batch.id },
+      data: {
+        metadata: {
+          ...batch.metadata as object,
+          webhooks: [
+            ...((batch.metadata as Record<string, any>)?.webhooks || []),
+            {
+              id: webhookId,
+              type: payload.type,
+              timestamp: new Date().toISOString(),
+            }
+          ]
+        }
+      }
+    });
     
     // Handle different webhook types
-    switch (payload.type) {
-      case "batch.completed":
-      case "batch.failed":
-      case "batch.canceled":
-      case "batch.in_progress":
-        return await handleBatchUpdate(payload, batch);
-      default:
-        console.warn(`Unhandled webhook type: ${payload.type}`);
-        return new Response("OK");
+    try {
+      switch (payload.type) {
+        case "batch.completed":
+        case "batch.failed":
+        case "batch.canceled":
+        case "batch.in_progress":
+          // Use our improved sync service to handle the update
+          await syncBatchWithAnthropic(batch.id);
+          console.log(`Successfully processed webhook ${webhookId} for batch ${batch.id}`);
+          return new Response("OK");
+        default:
+          console.warn(`Unhandled webhook type: ${payload.type} for webhook ${webhookId}`);
+          return new Response("OK");
+      }
+    } catch (error) {
+      console.error(`Error processing webhook ${webhookId} for batch ${batch.id}:`, error);
+      // We still return 200 OK to acknowledge receipt of the webhook
+      // This prevents Anthropic from retrying unnecessarily
+      return new Response("Webhook received, but processing failed", { status: 200 });
     }
   } catch (error) {
     console.error("Error processing webhook:", error);
@@ -112,7 +145,7 @@ async function handleBatchUpdate(payload: any, batch?: any) {
   
   // If batch is not provided, find it in the database
   if (!batch) {
-    batch = await prisma.batch.findUnique({
+    batch = await db.batch.findUnique({
       where: { anthropicId: batch_id },
     });
     
@@ -125,7 +158,7 @@ async function handleBatchUpdate(payload: any, batch?: any) {
   console.log(`Updating batch ${batch.id} status to ${mapAnthropicStatus(status)}`);
   
   // Update batch status
-  await prisma.batch.update({
+  await db.batch.update({
     where: { id: batch.id },
     data: {
       status: mapAnthropicStatus(status),
@@ -149,7 +182,7 @@ async function handleBatchUpdate(payload: any, batch?: any) {
           return;
         }
         
-        await prisma.completion.update({
+        await db.completion.update({
           where: { id: completionId },
           data: {
             anthropicId: completion.id,

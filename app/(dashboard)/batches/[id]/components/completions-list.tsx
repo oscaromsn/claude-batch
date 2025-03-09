@@ -1,6 +1,5 @@
 "use client";
 
-import { useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { 
@@ -33,14 +32,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
 import { toast } from "@/components/ui/use-toast";
-import { getCompletions } from "@/lib/api/completions";
 import { type Completion, type CompletionStatus } from "@prisma/client";
 
 // Enum for sort fields
@@ -69,77 +61,20 @@ function StatusBadge({ status }: { status: CompletionStatus }) {
   );
 }
 
-export async function CompletionsList({ batchId }: { batchId: string }) {
-  const searchParams = useSearchParams();
-  
-  // Parse sorting parameters
-  const sortField = (searchParams.get("sort") as SortField) || SortField.CREATED_AT;
-  const sortOrder = searchParams.get("order") === "asc" ? "asc" : "desc";
-  
-  // Fetch completions
-  const completions = await getCompletions(batchId, {
-    sortField,
-    sortOrder,
-  });
-  
-  // Add export functionality to completions
-  const completionsWithActions = completions.map(completion => ({
-    ...completion,
-    exportCompletion: async () => {
-      const data = {
-        id: completion.id,
-        batchId: completion.batchId,
-        anthropicId: completion.anthropicId,
-        status: completion.status,
-        createdAt: completion.createdAt,
-        updatedAt: completion.updatedAt,
-        completedAt: completion.completedAt,
-        inputTokens: completion.inputTokens,
-        outputTokens: completion.outputTokens,
-        input: completion.input,
-        output: completion.output,
-        error: completion.error,
-      };
-      
-      const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `completion-${completion.id}.json`;
-      document.body.appendChild(a);
-      a.click();
-      URL.revokeObjectURL(url);
-      document.body.removeChild(a);
-    }
-  }));
-  
-  return (
-    <CompletionsListClient 
-      completions={completionsWithActions} 
-      sortField={sortField}
-      sortOrder={sortOrder}
-      batchId={batchId}
-    />
-  );
-}
-
-type CompletionWithActions = Completion & {
-  exportCompletion: () => Promise<void>;
-};
-
-function CompletionsListClient({ 
-  completions, 
-  sortField,
-  sortOrder,
+// Client component
+export function CompletionsList({ 
+  completions,
   batchId
 }: { 
-  completions: CompletionWithActions[];
-  sortField: SortField;
-  sortOrder: "asc" | "desc";
+  completions: Completion[];
   batchId: string;
 }) {
   const router = useRouter();
   const searchParams = useSearchParams();
+  
+  // Get sort fields from URL (or defaults)
+  const sortField = (searchParams.get("sort") as SortField) || SortField.CREATED_AT;
+  const sortOrder = searchParams.get("order") === "asc" ? "asc" : "desc";
   
   // Handle sort change
   const handleSort = (field: SortField) => {
@@ -162,15 +97,41 @@ function CompletionsListClient({
     return sortOrder === "asc" ? "asc" : "desc";
   };
 
-  // Handle export of selected completion
-  const handleExport = async (completion: CompletionWithActions) => {
+  // Handle export of a single completion
+  const handleExport = (completion: Completion) => {
     try {
-      await completion.exportCompletion();
+      // Create export data
+      const data = {
+        id: completion.id,
+        batchId: completion.batchId,
+        anthropicId: completion.anthropicId,
+        status: completion.status,
+        createdAt: completion.createdAt,
+        updatedAt: completion.updatedAt,
+        completedAt: completion.completedAt,
+        inputTokens: completion.inputTokens,
+        outputTokens: completion.outputTokens,
+        input: completion.input,
+        output: completion.output,
+        error: completion.error,
+      };
+      
+      // Create and download the file
+      const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `completion-${completion.id}.json`;
+      document.body.appendChild(a);
+      a.click();
+      URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+      
       toast({
         title: "Completion exported",
         description: "Completion has been exported successfully.",
       });
-    } catch (error) {
+    } catch (_error: unknown) {
       toast({
         title: "Export failed",
         description: "Could not export completion.",
@@ -221,7 +182,7 @@ function CompletionsListClient({
         </Button>
       </div>
       
-      {completions.length === 0 ? (
+      {completions && completions.length === 0 ? (
         <div className="p-8 border rounded-md text-center">
           <p className="text-muted-foreground">No completions found for this batch.</p>
         </div>
@@ -255,64 +216,20 @@ function CompletionsListClient({
                     )}
                   </div>
                 </TableHead>
-                <TableHead onClick={() => handleSort(SortField.COMPLETED_AT)} className="cursor-pointer">
-                  <div className="flex items-center gap-1">
-                    Completed
-                    {getSortDirection(SortField.COMPLETED_AT) === "asc" ? (
-                      <ArrowUp className="w-4 h-4" />
-                    ) : getSortDirection(SortField.COMPLETED_AT) === "desc" ? (
-                      <ArrowDown className="w-4 h-4" />
-                    ) : (
-                      <ArrowUpDown className="w-4 h-4" />
-                    )}
-                  </div>
-                </TableHead>
-                <TableHead>Tokens</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {completions.map((completion) => (
+              {completions && completions.map((completion) => (
                 <TableRow key={completion.id}>
                   <TableCell className="font-mono text-xs">
                     {completion.id.substring(0, 8)}...
                   </TableCell>
                   <TableCell>
                     <StatusBadge status={completion.status} />
-                    {completion.error && (
-                      <TooltipProvider>
-                        <Tooltip>
-                          <TooltipTrigger>
-                            <XCircle className="inline ml-2 w-4 h-4 text-destructive" />
-                          </TooltipTrigger>
-                          <TooltipContent className="max-w-xs">
-                            <p>
-                              {completion.error.message || "Unknown error"}
-                            </p>
-                          </TooltipContent>
-                        </Tooltip>
-                      </TooltipProvider>
-                    )}
-                  </TableCell>
-                  <TableCell className="text-muted-foreground">
-                    {format(new Date(completion.createdAt), "MMM d, yyyy HH:mm")}
-                  </TableCell>
-                  <TableCell className="text-muted-foreground">
-                    {completion.completedAt 
-                      ? format(new Date(completion.completedAt), "MMM d, yyyy HH:mm") 
-                      : "-"}
                   </TableCell>
                   <TableCell>
-                    {completion.inputTokens && completion.outputTokens ? (
-                      <div className="text-xs">
-                        <span className="font-medium">{(completion.inputTokens + completion.outputTokens).toLocaleString()}</span>
-                        <span className="ml-1 text-muted-foreground">
-                          ({completion.inputTokens.toLocaleString()} in / {completion.outputTokens.toLocaleString()} out)
-                        </span>
-                      </div>
-                    ) : (
-                      <span className="text-muted-foreground text-xs">Not available</span>
-                    )}
+                    {format(new Date(completion.createdAt), "Pp")}
                   </TableCell>
                   <TableCell className="text-right">
                     <DropdownMenu>
@@ -326,18 +243,12 @@ function CompletionsListClient({
                           <Download className="mr-2 w-4 h-4" />
                           Export
                         </DropdownMenuItem>
-                        {completion.anthropicId && (
-                          <DropdownMenuItem asChild>
-                            <Link 
-                              href={`https://console.anthropic.com/completions/${completion.anthropicId}`}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                            >
-                              <ExternalLink className="mr-2 w-4 h-4" />
-                              View in Console
-                            </Link>
-                          </DropdownMenuItem>
-                        )}
+                        <DropdownMenuItem>
+                          <Link href={`/completions/${completion.id}`} className="flex items-center w-full">
+                            <ExternalLink className="mr-2 w-4 h-4" />
+                            View Details
+                          </Link>
+                        </DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>
                   </TableCell>
