@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db/prisma";
 import * as crypto from "crypto";
+import { anthropicClient } from "@/lib/api/anthropic";
 
 /**
  * @name BATCH_WEBHOOK_HANDLER
@@ -10,32 +11,54 @@ export async function POST(req: Request) {
   try {
     // Clone the request to get both the text body and JSON
     const clonedReq = req.clone();
+    const signature = req.headers.get("anthropic-signature");
+    const timestamp = req.headers.get("anthropic-timestamp");
     
-    // Verify webhook signature if webhook secret is set
-    if (process.env.ANTHROPIC_WEBHOOK_SECRET) {
-      const signature = req.headers.get("anthropic-signature");
-      const timestamp = req.headers.get("anthropic-timestamp");
-      
-      if (!signature || !timestamp) {
-        console.error("Missing webhook signature headers");
-        return new Response("Unauthorized", { status: 401 });
-      }
-      
-      const body = await clonedReq.text();
-      
-      // Verify signature
-      const hmac = crypto.createHmac("sha256", process.env.ANTHROPIC_WEBHOOK_SECRET);
-      const data = `${timestamp}.${body}`;
-      const expectedSignature = hmac.update(data).digest("hex");
-      
-      if (signature !== expectedSignature) {
-        console.error("Invalid webhook signature");
-        return new Response("Unauthorized", { status: 401 });
-      }
+    if (!signature || !timestamp) {
+      console.error("Missing webhook signature headers");
+      return new Response("Unauthorized", { status: 401 });
     }
     
-    // Parse webhook payload
-    const payload = await req.json();
+    const body = await clonedReq.text();
+    const payload = JSON.parse(body);
+    
+    // Extract batch ID
+    const batchId = payload.batch_id;
+    if (!batchId) {
+      console.error("Missing batch ID in webhook payload");
+      return new Response("Missing batch ID", { status: 400 });
+    }
+    
+    // Find batch in database to get user's webhook secret
+    const batch = await prisma.batch.findUnique({
+      where: { anthropicId: batchId },
+      include: { user: true }
+    });
+    
+    if (!batch) {
+      console.error(`Batch not found for ID: ${batchId}`);
+      return new Response("Batch not found", { status: 404 });
+    }
+    
+    // Verify the webhook signature using either the user's webhook secret or the default one
+    const webhookSecret = batch.user.anthropicWebhookSecret || process.env.ANTHROPIC_WEBHOOK_SECRET;
+    let signatureValid = false;
+    
+    if (webhookSecret) {
+      const hmac = crypto.createHmac("sha256", webhookSecret);
+      const data = `${timestamp}.${body}`;
+      const expectedSignature = hmac.update(data).digest("hex");
+      signatureValid = signature === expectedSignature;
+    } else {
+      // Fall back to the anthropicClient's verification method
+      signatureValid = anthropicClient.verifyWebhookSignature(signature, timestamp, body);
+    }
+    
+    if (!signatureValid) {
+      console.error("Invalid webhook signature");
+      return new Response("Unauthorized", { status: 401 });
+    }
+    
     console.log("Received webhook from Anthropic:", payload.type);
     
     // Handle different webhook types
@@ -44,7 +67,7 @@ export async function POST(req: Request) {
       case "batch.failed":
       case "batch.canceled":
       case "batch.in_progress":
-        return await handleBatchUpdate(payload);
+        return await handleBatchUpdate(payload, batch);
       default:
         console.warn(`Unhandled webhook type: ${payload.type}`);
         return new Response("OK");
@@ -84,17 +107,19 @@ function mapAnthropicCompletionStatus(status: string) {
 /**
  * Process batch update webhook
  */
-async function handleBatchUpdate(payload: any) {
+async function handleBatchUpdate(payload: any, batch?: any) {
   const { batch_id, status, completions } = payload;
   
-  // Find batch in database
-  const batch = await prisma.batch.findUnique({
-    where: { anthropicId: batch_id },
-  });
-  
+  // If batch is not provided, find it in the database
   if (!batch) {
-    console.error(`Batch not found for ID: ${batch_id}`);
-    return new Response("Batch not found", { status: 404 });
+    batch = await prisma.batch.findUnique({
+      where: { anthropicId: batch_id },
+    });
+    
+    if (!batch) {
+      console.error(`Batch not found for ID: ${batch_id}`);
+      return new Response("Batch not found", { status: 404 });
+    }
   }
   
   console.log(`Updating batch ${batch.id} status to ${mapAnthropicStatus(status)}`);

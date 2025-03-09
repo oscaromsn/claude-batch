@@ -27,6 +27,24 @@ export async function POST(req: Request) {
     const body = await req.json();
     const validatedData = batchCreationSchema.parse(body);
     
+    // Get user with API credentials
+    const user = await prisma.user.findUnique({
+      where: { id: session.user.id },
+      select: {
+        id: true,
+        anthropicApiKey: true,
+        anthropicWebhookSecret: true,
+      },
+    });
+    
+    // Update Anthropic client with user's credentials if available
+    if (user?.anthropicApiKey) {
+      anthropicClient.updateCredentials({
+        apiKey: user.anthropicApiKey,
+        webhookSecret: user.anthropicWebhookSecret,
+      });
+    }
+    
     // Format messages for API
     const messages = validatedData.messages.map(msg => ({
       role: msg.role,

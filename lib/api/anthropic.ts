@@ -83,6 +83,7 @@ export interface RetryOptions {
 
 export interface AnthropicClientOptions {
   apiKey?: string;
+  webhookSecret?: string;
   headers?: CustomHeaders;
 }
 
@@ -93,11 +94,15 @@ export interface AnthropicClientOptions {
 export class AnthropicClient {
   private client: Anthropic;
   private readonly retryOptions: RetryOptions;
+  private webhookSecret?: string;
   
-  constructor(apiKey?: string, retryOptions?: Partial<RetryOptions>) {
+  constructor(options?: AnthropicClientOptions, retryOptions?: Partial<RetryOptions>) {
     const env = getEnv();
+    const apiKey = options?.apiKey || env.ANTHROPIC_API_KEY;
+    this.webhookSecret = options?.webhookSecret || env.ANTHROPIC_WEBHOOK_SECRET;
+    
     this.client = new Anthropic({
-      apiKey: apiKey || env.ANTHROPIC_API_KEY,
+      apiKey,
     });
     
     // Default retry options
@@ -109,6 +114,21 @@ export class AnthropicClient {
       retryableStatusCodes: [429, 500, 502, 503, 504],
       ...retryOptions
     };
+  }
+  
+  /**
+   * Update API credentials
+   */
+  updateCredentials(options: AnthropicClientOptions): void {
+    if (options.apiKey) {
+      this.client = new Anthropic({
+        apiKey: options.apiKey,
+      });
+    }
+    
+    if (options.webhookSecret) {
+      this.webhookSecret = options.webhookSecret;
+    }
   }
   
   /**
@@ -280,9 +300,8 @@ export class AnthropicClient {
   /**
    * Verify webhook signature from Anthropic
    */
-  verifyWebhookSignature(signature: string, timestamp: string, body: string): boolean {
-    const env = getEnv();
-    const webhookSecret = env.ANTHROPIC_WEBHOOK_SECRET as string | undefined;
+  verifyWebhookSignature(signature: string, timestamp: string, body: string, customWebhookSecret?: string): boolean {
+    const webhookSecret = customWebhookSecret || this.webhookSecret;
     
     if (!webhookSecret) {
       console.warn("Webhook secret not configured. Skipping signature verification.");
