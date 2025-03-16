@@ -422,8 +422,8 @@ export default function BatchCreationForm() {
 
             <div>
               <div className="flex items-center mb-1">
-                <Label htmlFor="description" className="text-gray-700">Description</Label>
-                <Badge variant="outline" className="bg-transparent ml-2 font-normal text-gray-500 text-xs">Optional</Badge>
+                <Label htmlFor="description" className="text-foreground">Description</Label>
+                <Badge variant="outline" className="bg-transparent ml-2 font-normal text-muted-foreground text-xs">Optional</Badge>
               </div>
               <Input
                 id="description"
@@ -435,8 +435,8 @@ export default function BatchCreationForm() {
             {/* System Prompt (Moved from model parameters) */}
             <div>
               <div className="flex items-center mb-1">
-                <Label htmlFor="system" className="text-gray-700">System Prompt</Label>
-                <Badge variant="outline" className="bg-transparent ml-2 font-normal text-gray-500 text-xs">Optional</Badge>
+                <Label htmlFor="system" className="text-foreground">System Prompt</Label>
+                <Badge variant="outline" className="bg-transparent ml-2 font-normal text-muted-foreground text-xs">Optional</Badge>
               </div>
               <Input
                 id="system"
@@ -499,7 +499,7 @@ export default function BatchCreationForm() {
               <Label htmlFor="temperature" className="block mb-1 font-medium">Temperature</Label>
               <div className="flex flex-col space-y-2">
                 <div className="flex items-center space-x-2">
-                  <span className="text-gray-500 text-xs">0</span>
+                  <span className="text-muted-foreground text-xs">0</span>
                   <div className="relative flex-1">
                     <input
                       id="temperature-slider"
@@ -513,10 +513,10 @@ export default function BatchCreationForm() {
                         setTemperatureValue(value);
                         form.setValue("temperature", value);
                       }}
-                      className="bg-gray-200 rounded-lg w-full h-2 accent-indigo-600 appearance-none cursor-pointer"
+                      className="bg-secondary rounded-lg w-full h-2 accent-indigo-600 appearance-none cursor-pointer"
                     />
                   </div>
-                  <span className="text-gray-500 text-xs">1</span>
+                  <span className="text-muted-foreground text-xs">1</span>
                   <Input
                     type="number"
                     step="0.01"
@@ -531,7 +531,7 @@ export default function BatchCreationForm() {
                     className="w-16 h-8 text-xs text-center"
                   />
                 </div>
-                <div className="mt-1 text-gray-500 text-sm">
+                <div className="mt-1 text-muted-foreground text-sm">
                   <p className="text-xs">Controls randomness in the response:</p>
                   <ul className="mt-1 pl-4 text-xs list-disc">
                     <li><strong>Lower values (0-0.3):</strong> More focused, deterministic responses</li> 
@@ -557,7 +557,7 @@ export default function BatchCreationForm() {
                   }
                 })}
               />
-              <p className={`mt-1 text-xs ${tokenLimitExceeded ? "text-red-500 font-medium" : "text-gray-500"}`}>
+              <p className={`mt-1 text-xs ${tokenLimitExceeded ? "text-red-500 font-medium" : "text-muted-foreground"}`}>
                 Limit: {tokenLimit.toLocaleString()} tokens
                 {hasExtendedOutputFlag ? " (extended with 128k beta header)" : 
                 isThinkingEnabled && currentModel === "claude-3-7-sonnet-20240613" ? " (extended with thinking mode)" : ""}
@@ -574,14 +574,14 @@ export default function BatchCreationForm() {
 
       {/* Thinking Mode Card (Highlighted for Claude 3.7) */}
       {MODEL_TOKEN_LIMITS[currentModel as keyof typeof MODEL_TOKEN_LIMITS]?.supportsThinking && (
-        <Card className="bg-blue-50/50 p-6 border-2 border-blue-100">
+        <Card className="bg-blue-50/10 dark:bg-blue-950/20 p-6 border-2 border-blue-100 dark:border-blue-900">
           <div className="flex items-start gap-3">
-            <LightbulbIcon className="mt-1 w-5 h-5 text-blue-500" />
+            <LightbulbIcon className="mt-1 w-5 h-5 text-blue-500 dark:text-blue-400" />
             <div className="flex-1 space-y-4">
               <div className="flex justify-between items-center">
                 <div className="space-y-0.5">
-                  <h3 className="font-medium text-blue-800">Thinking Mode</h3>
-                  <p className="text-blue-700 text-sm">
+                  <h3 className="font-medium text-blue-800 dark:text-blue-300">Thinking Mode</h3>
+                  <p className="text-blue-700 dark:text-blue-400 text-sm">
                     Enable extended thinking for complex tasks with Claude 3.7 Sonnet
                   </p>
                 </div>
@@ -592,7 +592,7 @@ export default function BatchCreationForm() {
               </div>
               {isThinkingEnabled && (
                 <div>
-                  <Label htmlFor="thinkingBudget" className="block mb-1 text-blue-700 text-sm">Thinking Budget (tokens)</Label>
+                  <Label htmlFor="thinkingBudget" className="block mb-1 text-blue-700 dark:text-blue-400 text-sm">Thinking Budget (tokens)</Label>
                   <Input
                     id="thinkingBudget"
                     type="number"
@@ -614,7 +614,7 @@ export default function BatchCreationForm() {
                       Thinking budget cannot exceed max output tokens
                     </p>
                   )}
-                  <div className="mt-1 text-blue-700 text-xs">
+                  <div className="mt-1 text-blue-700 dark:text-blue-400 text-xs">
                     Recommended: 5,000-10,000 tokens. Allows Claude to work through complex problems step-by-step.
                   </div>
                 </div>
@@ -625,17 +625,17 @@ export default function BatchCreationForm() {
       )}
 
       {/* Messages Section - Full Width */}
-      <Card className="p-6 border-2 border-indigo-100">
+      <Card className="p-6 border-2 border-indigo-100 dark:border-indigo-900">
         <div className="flex items-center mb-4">
           <h3 className="font-medium text-lg">Messages</h3>
-          <Badge className="bg-indigo-100 hover:bg-indigo-200 ml-2 text-indigo-800">
+          <Badge className="bg-indigo-100 hover:bg-indigo-200 dark:hover:bg-indigo-800 dark:bg-indigo-900 ml-2 text-indigo-800 dark:text-indigo-300">
             Required
           </Badge>
         </div>
         
         <div className="space-y-4">
           {fields.map((field, index) => (
-            <Card key={field.id} className="p-4 border border-gray-200">
+            <Card key={field.id} className="p-4 border border-gray-200 dark:border-gray-800">
               <div className="space-y-4">
                 <div className="flex items-center gap-4">
                   <Select
@@ -684,7 +684,7 @@ export default function BatchCreationForm() {
             type="button"
             variant="outline"
             onClick={() => append({ role: "user", content: "" })}
-            className="bg-indigo-50 hover:bg-indigo-100 border-indigo-200 w-full text-indigo-700 hover:text-indigo-800"
+            className="bg-indigo-50 hover:bg-indigo-100 dark:hover:bg-indigo-900/50 dark:bg-indigo-950/50 border-indigo-200 dark:border-indigo-800 w-full text-indigo-700 hover:text-indigo-800 dark:hover:text-indigo-200 dark:text-indigo-300"
           >
             <Plus className="mr-2 w-5 h-5" />
             Add Message
@@ -693,28 +693,28 @@ export default function BatchCreationForm() {
       </Card>
 
       {/* Advanced Options - De-emphasized */}
-      <Accordion type="single" collapsible className="bg-gray-50 border rounded-md w-full">
+      <Accordion type="single" collapsible className="bg-gray-50 dark:bg-gray-900 border rounded-md w-full">
         <AccordionItem value="advanced-options" className="border-none">
           <AccordionTrigger className="px-6 py-4">
             <div className="flex items-center">
-              <BeakerIcon className="mr-2 w-4 h-4 text-gray-500" />
+              <BeakerIcon className="mr-2 w-4 h-4 text-muted-foreground" />
               <span>Advanced Options</span>
-              <Badge variant="outline" className="bg-gray-100 ml-3 text-xs">Experimental</Badge>
+              <Badge variant="outline" className="bg-gray-100 dark:bg-gray-800 ml-3 text-xs">Experimental</Badge>
             </div>
           </AccordionTrigger>
           <AccordionContent className="px-6 pt-2 pb-6">
             <div className="space-y-6">
               <div>
                 <div className="flex items-center mb-1">
-                  <Label htmlFor="anthropicVersion" className="text-gray-700">Anthropic API Version</Label>
-                  <Badge variant="outline" className="bg-transparent ml-2 font-normal text-gray-500 text-xs">Optional</Badge>
+                  <Label htmlFor="anthropicVersion" className="text-foreground">Anthropic API Version</Label>
+                  <Badge variant="outline" className="bg-transparent ml-2 font-normal text-muted-foreground text-xs">Optional</Badge>
                 </div>
                 <Input
                   id="anthropicVersion"
                   {...form.register("anthropicVersion")}
                   placeholder="e.g., 2023-06-01"
                 />
-                <p className="mt-1 text-gray-500 text-xs">
+                <p className="mt-1 text-muted-foreground text-xs">
                   Specify the Anthropic API version to use. Leave empty for default.
                 </p>
               </div>
@@ -745,7 +745,7 @@ export default function BatchCreationForm() {
                       );
                     })}
                   </div>
-                  <p className="text-gray-500 text-xs">
+                  <p className="text-muted-foreground text-xs">
                     Click on a beta feature to enable/disable it
                   </p>
                 </div>
@@ -803,7 +803,7 @@ export default function BatchCreationForm() {
                       </Card>
                     ))}
                     {betaHeaderFields.length === 0 && (
-                      <p className="bg-gray-50 p-3 rounded-md text-gray-500 text-sm">
+                      <p className="bg-secondary/50 p-3 rounded-md text-muted-foreground text-sm">
                         No beta headers added. Add headers to enable Anthropic beta features.
                       </p>
                     )}
