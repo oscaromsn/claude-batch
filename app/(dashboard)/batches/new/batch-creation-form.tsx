@@ -196,11 +196,6 @@ export default function BatchCreationForm() {
   // Function to validate token limits
   const validateTokenLimits = () => {
     const maxOutput = Number(form.getValues("maxTokens")) || 0;
-    const currentThinkingBudget = Number(form.getValues("thinkingBudget")) || 0;
-    
-    // When thinking mode is enabled, we don't need to add thinking budget
-    // to the total for validation, as the form's maxTokens value is already
-    // limited by the appropriate thinkingLimit (64000 for Claude 3.7)
     
     // Get the current token limit based on model and flags
     const modelLimits = MODEL_TOKEN_LIMITS[currentModel as keyof typeof MODEL_TOKEN_LIMITS];
@@ -222,7 +217,7 @@ export default function BatchCreationForm() {
     
     // Check if thinking budget exceeds max output tokens when thinking is enabled
     if (isThinkingEnabled) {
-      setThinkingBudgetExceedsMax(currentThinkingBudget > maxOutput);
+      setThinkingBudgetExceedsMax(thinkingBudget > maxOutput);
     } else {
       setThinkingBudgetExceedsMax(false);
     }
@@ -399,12 +394,12 @@ export default function BatchCreationForm() {
       {/* Basic Setup Section - Two column layout */}
       <div className="gap-8 grid grid-cols-1 md:grid-cols-2">
         {/* Left Column - Basic Information */}
-        <Card className="p-6">
+        <Card className="p-6 border dark:border-gray-800">
           <h3 className="mb-4 font-medium text-lg">Basic Information</h3>
           <div className="space-y-4">
             <div>
               <div className="flex items-center mb-1">
-                <Label htmlFor="name" className="font-medium">Batch Name</Label>
+                <Label htmlFor="name" className="font-medium text-foreground">Batch Name</Label>
                 <span className="ml-1 text-red-500">*</span>
               </div>
               <Input
@@ -448,7 +443,7 @@ export default function BatchCreationForm() {
         </Card>
 
         {/* Right Column - Model Parameters */}
-        <Card className="p-6">
+        <Card className="p-6 border dark:border-gray-800">
           <h3 className="mb-4 font-medium text-lg">Model Parameters</h3>
           <div className="space-y-4">
             <div>
@@ -513,7 +508,7 @@ export default function BatchCreationForm() {
                         setTemperatureValue(value);
                         form.setValue("temperature", value);
                       }}
-                      className="bg-secondary rounded-lg w-full h-2 accent-indigo-600 appearance-none cursor-pointer"
+                      className="bg-secondary rounded-lg w-full h-2 accent-primary appearance-none cursor-pointer"
                     />
                   </div>
                   <span className="text-muted-foreground text-xs">1</span>
@@ -684,7 +679,7 @@ export default function BatchCreationForm() {
             type="button"
             variant="outline"
             onClick={() => append({ role: "user", content: "" })}
-            className="bg-indigo-50 hover:bg-indigo-100 dark:hover:bg-indigo-900/50 dark:bg-indigo-950/50 border-indigo-200 dark:border-indigo-800 w-full text-indigo-700 hover:text-indigo-800 dark:hover:text-indigo-200 dark:text-indigo-300"
+            className="bg-indigo-50 hover:bg-indigo-100 dark:bg-indigo-950/50 dark:hover:bg-indigo-900/50 border-indigo-200 dark:border-indigo-800 w-full text-indigo-700 hover:text-indigo-800 dark:text-indigo-300 dark:hover:text-indigo-200"
           >
             <Plus className="mr-2 w-5 h-5" />
             Add Message
@@ -723,7 +718,7 @@ export default function BatchCreationForm() {
 
               <div>
                 <div className="mb-3">
-                  <Label className="block mb-1 text-gray-700">Beta Features</Label>
+                  <Label className="block mb-1 text-foreground">Beta Features</Label>
                   <div className="flex flex-wrap gap-2 mb-3">
                     {BETA_HEADER_SUGGESTIONS.map((suggestion) => {
                       // Skip suggestions that are restricted to specific models
@@ -736,7 +731,7 @@ export default function BatchCreationForm() {
                         <Badge 
                           key={suggestion.value}
                           variant={isActive ? "default" : "outline"}
-                          className={`cursor-pointer ${isActive ? "bg-green-100 text-green-800 hover:bg-green-200" : "hover:bg-gray-100"}`}
+                          className={`cursor-pointer ${isActive ? "bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300 hover:bg-green-200 dark:hover:bg-green-800/40" : "hover:bg-gray-100 dark:hover:bg-gray-800"}`}
                           onClick={() => addBetaHeaderSuggestion(suggestion.name, suggestion.value)}
                         >
                           {isActive && <Check className="mr-1 w-3 h-3" />}
@@ -752,7 +747,7 @@ export default function BatchCreationForm() {
 
                 <div>
                   <div className="flex justify-between items-center mb-2">
-                    <Label className="text-gray-700">Custom Beta Headers</Label>
+                    <Label className="text-foreground">Custom Beta Headers</Label>
                     <Button
                       type="button"
                       variant="outline"
@@ -766,10 +761,10 @@ export default function BatchCreationForm() {
                   </div>
                   <div className="space-y-3">
                     {betaHeaderFields.map((field, index) => (
-                      <Card key={field.id} className="bg-white p-3">
+                      <Card key={field.id} className="bg-white dark:bg-gray-900 p-3 border dark:border-gray-800">
                         <div className="gap-2 grid grid-cols-[1fr_1fr_auto]">
                           <div>
-                            <Label htmlFor={`betaHeaders.${index}.name`} className="text-xs">
+                            <Label htmlFor={`betaHeaders.${index}.name`} className="text-xs text-foreground">
                               Header Name
                             </Label>
                             <Input
@@ -780,7 +775,7 @@ export default function BatchCreationForm() {
                             />
                           </div>
                           <div>
-                            <Label htmlFor={`betaHeaders.${index}.value`} className="text-xs">
+                            <Label htmlFor={`betaHeaders.${index}.value`} className="text-xs text-foreground">
                               Header Value
                             </Label>
                             <Input
@@ -794,7 +789,7 @@ export default function BatchCreationForm() {
                             type="button"
                             variant="ghost"
                             size="sm"
-                            className="self-end hover:bg-red-50 p-0 w-8 h-8 hover:text-red-500"
+                            className="self-end hover:bg-red-50 dark:hover:bg-red-950/30 p-0 w-8 h-8 hover:text-red-500 dark:hover:text-red-400"
                             onClick={() => removeBetaHeader(index)}
                           >
                             <Trash2 className="w-4 h-4" />
@@ -828,7 +823,7 @@ export default function BatchCreationForm() {
         <Button 
           type="submit" 
           disabled={isSubmitting || tokenLimitExceeded}
-          className={`px-8 py-2 ${tokenLimitExceeded ? "bg-gray-300" : "bg-primary"}`}
+          className={`px-8 py-2 ${tokenLimitExceeded ? "bg-gray-300 dark:bg-gray-700" : "bg-primary"}`}
         >
           {isSubmitting && <Loader2 className="mr-2 w-4 h-4 animate-spin" />}
           Create Batch
